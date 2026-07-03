@@ -6,7 +6,7 @@ The **Token Rate** extension provides a live dashboard showing and calculating i
 
 ## 🎬 Demo
 
-![Token Rate Demo](assets/token-rate-demo.gif)
+<iframe width="800" height="450" src="https://www.youtube.com/embed/RN5AJK_N418" title="Token Rate Demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 ## ✨ Features
 

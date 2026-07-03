@@ -1,9 +1,9 @@
 /**
  * Token Rate Extension
  *
- * Displays tokens/sec in a widget while the model is generating a response.
- * Uses `assistantMessageEvent` text deltas to count tokens in real time,
- * then shows final stats from `message_end`.
+ * Displays tokens/sec in a bordered widget while the model is generating
+ * a response. Uses `assistantMessageEvent` text deltas to count tokens in
+ * real time, then shows final stats from `message_end`.
  *
  * Usage:
  *   Place this file at ~/.pi/agent/extensions/token-rate/index.ts
@@ -14,48 +14,31 @@
  */
 
 import type { ExtensionAPI, AssistantMessageEvent } from "@earendil-works/pi-coding-agent";
+import { DynamicBorder } from "@earendil-works/pi-coding-agent";
+import { Container, Text, type Component, matchesKey, Key, truncateToWidth } from "@earendil-works/pi-tui";
 
-const WIDGET_KEY = "token-rate";
+// ─── Types ─────────────────────────────────────────────────────────────
+type SetWidgetFn = (
+  key: string,
+  content: string[] | Component | ((tui: unknown, theme: { fg: (c: string, s: string) => string }) => Component),
+) => void;
 
-// Approximate: 1 token ≈ 4 chars for English text
+interface RateData {
+  currentRate: number;
+  avgRate: number;
+  tokens: number;
+  elapsed: number;
+}
+
+interface FinalData {
+  tokens: number;
+  time: number;
+  avgRate: number;
+  sessionTotal: number;
+}
+
+// ─── Utility ───────────────────────────────────────────────────────────
 const CHARS_PER_TOKEN = 4;
-
-// ─── Box widget with Unicode borders ─────────────────────────────────
-function makeBox(title: string, lines: string[]): string[] {
-  const header = ` ${title} `;
-  const lineLen = Math.max(header.length, ...lines.map(l => l.length), 6);
-  const w = lineLen + 2;
-
-  const top    = "┌" + "─".repeat(w) + "┐";
-  const headerPadded = header.padEnd(w);
-  const bottom = "└" + "─".repeat(w) + "┘";
-
-  const body = lines.map(l => {
-    const padded = l.padEnd(w);
-    return `│${padded}│`;
-  });
-
-  return [top, headerPadded, ...body, bottom];
-}
-
-// ─── Shared module-level state ───────────────────────────────────────
-let widgetVisible = true;
-let streamingActive = false;
-
-function clearWidget(ctx: { ui: { setWidget: (key: string, lines: string[]) => void } }) {
-  ctx.ui.setWidget(WIDGET_KEY, []);
-  widgetVisible = false;
-}
-
-function toggleWidget(ctx: { ui: { setWidget: (key: string, lines: string[]) => void } }): boolean {
-  widgetVisible = !widgetVisible;
-  if (!widgetVisible) {
-    ctx.ui.setWidget(WIDGET_KEY, []);
-  } else if (streamingActive) {
-    ctx.ui.setWidget(WIDGET_KEY, makeBox("⚡ Token Rate", ["(toggle restored)"]));
-  }
-  return widgetVisible;
-}
 
 function formatMs(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -66,37 +49,107 @@ function formatMs(ms: number): string {
   return `${min}m${s}s`;
 }
 
-function updateWidget(ctx: { ui: { setWidget: (key: string, lines: string[]) => void } }, data: {
-  currentRate: number;
-  avgRate: number;
-  tokens: number;
-  elapsed: number;
-}) {
-  if (!widgetVisible) return;
-  ctx.ui.setWidget(WIDGET_KEY, makeBox("⚡ Token Rate", [
-    `Current:  ${data.currentRate.toFixed(1)} tok/s`,
-    `Average:  ${data.avgRate.toFixed(1)} tok/s`,
+function formatRate(r: number): string {
+  return r.toFixed(1);
+}
+
+// ─── TokenRateWidget — official TUI Component ─────────────────────────
+/**
+ * A bordered TUI component that displays token rate statistics.
+ * Uses DynamicBorder + Container + Text from Pi-TUI for theming support.
+ */
+class TokenRateWidget implements Component {
+  private title: string;
+  private lines: string[];
+  private cachedLines: string[] = [];
+  private cachedWidth = 0;
+
+  constructor(title: string, lines: string[]) {
+    this.title = title;
+    this.lines = lines;
+  }
+
+  render(width: number): string[] {
+    if (this.cachedLines.length > 0 && this.cachedWidth === width) {
+      return this.cachedLines;
+    }
+
+    const container = new Container();
+
+    // Top border
+    const topBorder = new DynamicBorder((s: string) => `\x1b[38;5;3m${s}\x1b[0m`);
+    container.addChild(topBorder);
+
+    // Title
+    container.addChild(new Text(` ${this.title} `, 0, 0));
+
+    // Body lines
+    for (const line of this.lines) {
+      container.addChild(new Text(line, 0, 0));
+    }
+
+    // Bottom border
+    const bottomBorder = new DynamicBorder((s: string) => `\x1b[38;5;3m${s}\x1b[0m`);
+    container.addChild(bottomBorder);
+
+    // Render and truncate
+    const rendered = container.render(width);
+    this.cachedLines = rendered.map((l) => truncateToWidth(l, width));
+    this.cachedWidth = width;
+
+    return this.cachedLines;
+  }
+
+  invalidate(): void {
+    this.cachedWidth = 0;
+    this.cachedLines = [];
+  }
+}
+
+// ─── Shared module-level state ────────────────────────────────────────
+let widgetVisible = true;
+let streamingActive = false;
+
+function clearWidget(ctx: { ui: { setWidget: SetWidgetFn } }): void {
+  ctx.ui.setWidget("token-rate", []);
+  widgetVisible = false;
+}
+
+function toggleWidget(ctx: { ui: { setWidget: SetWidgetFn } }): boolean {
+  widgetVisible = !widgetVisible;
+  if (!widgetVisible) {
+    ctx.ui.setWidget("token-rate", []);
+  } else if (streamingActive) {
+    ctx.ui.setWidget(
+      "token-rate",
+      new TokenRateWidget("⚡ Token Rate", ["(toggle restored)"]),
+    );
+  }
+  return widgetVisible;
+}
+
+// ─── Widget builders ──────────────────────────────────────────────────
+function buildLiveWidget(data: RateData): Component {
+  const lines = [
+    `Current:  ${formatRate(data.currentRate)} tok/s`,
+    `Average:  ${formatRate(data.avgRate)} tok/s`,
     `Tokens:   ${data.tokens}`,
     `Elapsed:  ${formatMs(data.elapsed)}`,
-  ]));
+  ];
+  return new TokenRateWidget("⚡ Token Rate", lines);
 }
 
-function updateWidgetFinal(ctx: { ui: { setWidget: (key: string, lines: string[]) => void } }, data: {
-  tokens: number;
-  time: number;
-  avgRate: number;
-  sessionTotal: number;
-}) {
-  if (!widgetVisible) return;
-  ctx.ui.setWidget(WIDGET_KEY, makeBox("⚡ Token Rate", [
+function buildFinalWidget(data: FinalData): Component {
+  const lines = [
     `Total:    ${data.tokens} tokens`,
     `Time:     ${formatMs(data.time)}`,
-    `Avg rate: ${data.avgRate.toFixed(1)} tok/s`,
+    `Avg rate: ${formatRate(data.avgRate)} tok/s`,
     `Session:  ${data.sessionTotal} tokens`,
-  ]));
+  ];
+  return new TokenRateWidget("⚡ Token Rate", lines);
 }
 
-// ─── Extension ───────────────────────────────────────────────────────
+// ─── Extension ────────────────────────────────────────────────────────
 interface RateTracker {
   startTime: number;
   lastTokens: number;
@@ -108,7 +161,7 @@ let tracker: RateTracker | null = null;
 let streamingText = "";
 let sessionTotalTokens = 0;
 
-export default function (pi: ExtensionAPI) {
+export default function (pi: ExtensionAPI): void {
   pi.on("message_start", (event) => {
     if (event.message.role === "assistant") {
       streamingText = "";
@@ -159,12 +212,14 @@ export default function (pi: ExtensionAPI) {
     const elapsed = now - tracker.startTime;
     const avgRate = elapsed > 0 ? (effectiveTokens / elapsed) * 1000 : 0;
 
-    updateWidget(ctx, {
-      currentRate: tracker.currentRate,
-      avgRate,
-      tokens: effectiveTokens,
-      elapsed,
-    });
+    if (widgetVisible) {
+      ctx.ui.setWidget("token-rate", buildLiveWidget({
+        currentRate: tracker.currentRate,
+        avgRate,
+        tokens: effectiveTokens,
+        elapsed,
+      }));
+    }
   });
 
   pi.on("message_end", async (event, ctx) => {
@@ -174,7 +229,8 @@ export default function (pi: ExtensionAPI) {
     streamingActive = false;
 
     const totalTime = Date.now() - tracker.startTime;
-    const totalTokens = event.message.usage?.total ?? Math.ceil(streamingText.length / CHARS_PER_TOKEN);
+    const totalTokens = event.message.usage?.total
+      ?? Math.ceil(streamingText.length / CHARS_PER_TOKEN);
     const avgRate = totalTime > 0
       ? (totalTokens / totalTime) * 1000
       : 0;
@@ -182,7 +238,15 @@ export default function (pi: ExtensionAPI) {
     // Accumulate session total
     sessionTotalTokens += totalTokens;
 
-    updateWidgetFinal(ctx, { tokens: totalTokens, time: totalTime, avgRate, sessionTotal: sessionTotalTokens });
+    if (widgetVisible) {
+      ctx.ui.setWidget("token-rate", buildFinalWidget({
+        tokens: totalTokens,
+        time: totalTime,
+        avgRate,
+        sessionTotal: sessionTotalTokens,
+      }));
+    }
+
     tracker = null;
   });
 

@@ -5,6 +5,9 @@
  * a response. Uses `assistantMessageEvent` text deltas to count tokens in
  * real time, then shows final stats from `message_end`.
  *
+ * Uses official Pi-TUI components: DynamicBorder (borders), Container (layout),
+ * Text (content lines). Fully theme-aware and open-source ready.
+ *
  * Usage:
  *   Place this file at ~/.pi/agent/extensions/token-rate/index.ts
  *   or .pi/extensions/token-rate/index.ts for project-local.
@@ -15,7 +18,14 @@
 
 import type { ExtensionAPI, AssistantMessageEvent } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
-import { Container, Text, type Component, matchesKey, Key, truncateToWidth } from "@earendil-works/pi-tui";
+import {
+  Container,
+  Text,
+  type Component,
+  matchesKey,
+  Key,
+  truncateToWidth,
+} from "@earendil-works/pi-tui";
 
 // ─── Types ─────────────────────────────────────────────────────────────
 type SetWidgetFn = (
@@ -49,63 +59,6 @@ function formatMs(ms: number): string {
   return `${min}m${s}s`;
 }
 
-function formatRate(r: number): string {
-  return r.toFixed(1);
-}
-
-// ─── TokenRateWidget — official TUI Component ─────────────────────────
-/**
- * A bordered TUI component that displays token rate statistics.
- * Uses DynamicBorder + Container + Text from Pi-TUI for theming support.
- */
-class TokenRateWidget implements Component {
-  private title: string;
-  private lines: string[];
-  private cachedLines: string[] = [];
-  private cachedWidth = 0;
-
-  constructor(title: string, lines: string[]) {
-    this.title = title;
-    this.lines = lines;
-  }
-
-  render(width: number): string[] {
-    if (this.cachedLines.length > 0 && this.cachedWidth === width) {
-      return this.cachedLines;
-    }
-
-    const container = new Container();
-
-    // Top border
-    const topBorder = new DynamicBorder((s: string) => `\x1b[38;5;3m${s}\x1b[0m`);
-    container.addChild(topBorder);
-
-    // Title
-    container.addChild(new Text(` ${this.title} `, 0, 0));
-
-    // Body lines
-    for (const line of this.lines) {
-      container.addChild(new Text(line, 0, 0));
-    }
-
-    // Bottom border
-    const bottomBorder = new DynamicBorder((s: string) => `\x1b[38;5;3m${s}\x1b[0m`);
-    container.addChild(bottomBorder);
-
-    // Render and truncate
-    const rendered = container.render(width);
-    this.cachedLines = rendered.map((l) => truncateToWidth(l, width));
-    this.cachedWidth = width;
-
-    return this.cachedLines;
-  }
-
-  invalidate(): void {
-    this.cachedWidth = 0;
-    this.cachedLines = [];
-  }
-}
-
 // ─── Shared module-level state ────────────────────────────────────────
 let widgetVisible = true;
 let streamingActive = false;
@@ -122,31 +75,88 @@ function toggleWidget(ctx: { ui: { setWidget: SetWidgetFn } }): boolean {
   } else if (streamingActive) {
     ctx.ui.setWidget(
       "token-rate",
-      new TokenRateWidget("⚡ Token Rate", ["(toggle restored)"]),
+      (tui, theme) => createTokenRateWidget(tui, theme, "⚡ Token Rate", ["(toggle restored)"]),
     );
   }
   return widgetVisible;
 }
 
+// ─── TokenRateWidget — official TUI Component ─────────────────────────
+/**
+ * Creates a bordered TUI component displaying token rate data.
+ *
+ * Uses DynamicBorder + Container + Text for theme-aware rendering.
+ * The factory pattern ensures theme changes are properly supported.
+ *
+ * See: Pattern 5 — Widgets Above/Below Editor
+ *       https://github.com/earendil-works/pi/blob/main/docs/tui.md
+ */
+function createTokenRateWidget(
+  _tui: unknown,
+  theme: { fg: (c: string, s: string) => string },
+  title: string,
+  lines: string[],
+): Component {
+  const container = new Container();
+
+  // Top border
+  container.addChild(new DynamicBorder((s: string) => theme.fg("borderAccent", s)));
+
+  // Title line
+  container.addChild(new Text(title, 1, 0));
+
+  // Body lines
+  for (const line of lines) {
+    container.addChild(new Text(line, 1, 0));
+  }
+
+  // Bottom border
+  container.addChild(new DynamicBorder((s: string) => theme.fg("borderAccent", s)));
+
+  const cached: { lines: string[]; width: number } = { lines: [], width: 0 };
+
+  return {
+    render(width: number): string[] {
+      if (cached.lines.length > 0 && cached.width === width) {
+        return cached.lines;
+      }
+      const rendered = container.render(width);
+      cached.lines = rendered.map((l) => truncateToWidth(l, width));
+      cached.width = width;
+      return cached.lines;
+    },
+
+    invalidate(): void {
+      container.invalidate();
+      cached.width = 0;
+      cached.lines = [];
+    },
+
+    handleInput(data: string): void {
+      // Token rate widget is non-interactive; ignore input
+    },
+  };
+}
+
 // ─── Widget builders ──────────────────────────────────────────────────
 function buildLiveWidget(data: RateData): Component {
   const lines = [
-    `Current:  ${formatRate(data.currentRate)} tok/s`,
-    `Average:  ${formatRate(data.avgRate)} tok/s`,
+    `Current:  ${data.currentRate.toFixed(1)} tok/s`,
+    `Average:  ${data.avgRate.toFixed(1)} tok/s`,
     `Tokens:   ${data.tokens}`,
     `Elapsed:  ${formatMs(data.elapsed)}`,
   ];
-  return new TokenRateWidget("⚡ Token Rate", lines);
+  return createTokenRateWidget(null, null as any, "⚡ Token Rate", lines);
 }
 
 function buildFinalWidget(data: FinalData): Component {
   const lines = [
     `Total:    ${data.tokens} tokens`,
     `Time:     ${formatMs(data.time)}`,
-    `Avg rate: ${formatRate(data.avgRate)} tok/s`,
+    `Avg rate: ${data.avgRate.toFixed(1)} tok/s`,
     `Session:  ${data.sessionTotal} tokens`,
   ];
-  return new TokenRateWidget("⚡ Token Rate", lines);
+  return createTokenRateWidget(null, null as any, "⚡ Token Rate", lines);
 }
 
 // ─── Extension ────────────────────────────────────────────────────────
@@ -193,9 +203,8 @@ export default function (pi: ExtensionAPI): void {
 
     // Prefer model-provided usage if available
     const totalUsage = (_event.message.usage as { total?: number } | undefined)?.total;
-    const effectiveTokens = totalUsage && totalUsage > estimatedTokens
-      ? totalUsage
-      : estimatedTokens;
+    const effectiveTokens =
+      totalUsage && totalUsage > estimatedTokens ? totalUsage : estimatedTokens;
 
     const now = Date.now();
     const tokenDelta = effectiveTokens - tracker.lastTokens;
@@ -213,12 +222,17 @@ export default function (pi: ExtensionAPI): void {
     const avgRate = elapsed > 0 ? (effectiveTokens / elapsed) * 1000 : 0;
 
     if (widgetVisible) {
-      ctx.ui.setWidget("token-rate", buildLiveWidget({
-        currentRate: tracker.currentRate,
-        avgRate,
-        tokens: effectiveTokens,
-        elapsed,
-      }));
+      // Use factory function so setWidget passes theme
+      ctx.ui.setWidget(
+        "token-rate",
+        (tui, theme) =>
+          createTokenRateWidget(tui, theme, "⚡ Token Rate", [
+            `Current:  ${tracker.currentRate.toFixed(1)} tok/s`,
+            `Average:  ${avgRate.toFixed(1)} tok/s`,
+            `Tokens:   ${effectiveTokens}`,
+            `Elapsed:  ${formatMs(elapsed)}`,
+          ]),
+      );
     }
   });
 
@@ -229,22 +243,25 @@ export default function (pi: ExtensionAPI): void {
     streamingActive = false;
 
     const totalTime = Date.now() - tracker.startTime;
-    const totalTokens = event.message.usage?.total
-      ?? Math.ceil(streamingText.length / CHARS_PER_TOKEN);
-    const avgRate = totalTime > 0
-      ? (totalTokens / totalTime) * 1000
-      : 0;
+    const totalTokens =
+      event.message.usage?.total ??
+      Math.ceil(streamingText.length / CHARS_PER_TOKEN);
+    const avgRate = totalTime > 0 ? (totalTokens / totalTime) * 1000 : 0;
 
     // Accumulate session total
     sessionTotalTokens += totalTokens;
 
     if (widgetVisible) {
-      ctx.ui.setWidget("token-rate", buildFinalWidget({
-        tokens: totalTokens,
-        time: totalTime,
-        avgRate,
-        sessionTotal: sessionTotalTokens,
-      }));
+      ctx.ui.setWidget(
+        "token-rate",
+        (tui, theme) =>
+          createTokenRateWidget(tui, theme, "⚡ Token Rate", [
+            `Total:    ${totalTokens} tokens`,
+            `Time:     ${formatMs(totalTime)}`,
+            `Avg rate: ${avgRate.toFixed(1)} tok/s`,
+            `Session:  ${sessionTotalTokens} tokens`,
+          ]),
+      );
     }
 
     tracker = null;

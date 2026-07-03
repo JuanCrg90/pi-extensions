@@ -60,6 +60,7 @@ function updateWidgetFinal(ctx: { ui: { setWidget: (key: string, lines: string[]
   tokens: number;
   time: number;
   avgRate: number;
+  sessionTotal: number;
 }) {
   widgetVisible = true;
   ctx.ui.setWidget(WIDGET_KEY, [
@@ -68,6 +69,7 @@ function updateWidgetFinal(ctx: { ui: { setWidget: (key: string, lines: string[]
     `  Total:    ${data.tokens} tokens`,
     `  Time:     ${formatMs(data.time)}`,
     `  Avg rate: ${data.avgRate.toFixed(1)} tok/s`,
+    `  Session:  ${data.sessionTotal} tokens`,
     `  `,
     `  💡 Stays visible after generation`,
   ]);
@@ -83,6 +85,7 @@ interface RateTracker {
 
 let tracker: RateTracker | null = null;
 let streamingText = "";
+let sessionTotalTokens = 0;
 
 export default function (pi: ExtensionAPI) {
   pi.on("message_start", (event) => {
@@ -152,11 +155,15 @@ export default function (pi: ExtensionAPI) {
       ? (totalTokens / totalTime) * 1000
       : 0;
 
-    updateWidgetFinal(ctx, { tokens: totalTokens, time: totalTime, avgRate });
+    // Accumulate session total
+    sessionTotalTokens += totalTokens;
+
+    updateWidgetFinal(ctx, { tokens: totalTokens, time: totalTime, avgRate, sessionTotal: sessionTotalTokens });
     tracker = null;
   });
 
   pi.on("session_start", (_event, ctx) => {
+    sessionTotalTokens = 0;
     clearWidget(ctx);
   });
 

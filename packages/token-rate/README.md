@@ -4,6 +4,10 @@ A real-time performance monitor for your AI interactions within [pi](https://git
 
 The **Token Rate** extension provides a live dashboard showing and calculating inference metrics as the model generates text. Instead of waiting until the end of a message to see how "fast" it was, you can watch the token flow in real-time.
 
+## 🎬 Demo
+
+![Token Rate Demo](assets/token-rate-demo.gif)
+
 ## ✨ Features
 
 -   **Live Metrics**: Displays current throughput (tokens/sec) and cumulative averages while the model is streaming.

@@ -15,52 +15,27 @@
 
 import type { ExtensionAPI, AssistantMessageEvent } from "@earendil-works/pi-coding-agent";
 
-
 const WIDGET_KEY = "token-rate";
 
 // Approximate: 1 token ≈ 4 chars for English text
 const CHARS_PER_TOKEN = 4;
 
-// ─── Box widget component ────────────────────────────────────────────
-class BoxWidget implements Component {
-  private title: string;
-  private lines: string[];
-  private cachedWidth?: number;
-  private cachedLines?: string[];
+// ─── Box widget with Unicode borders ─────────────────────────────────
+function makeBox(title: string, lines: string[]): string[] {
+  const header = ` ${title} `;
+  const lineLen = Math.max(header.length, ...lines.map(l => l.length), 6);
+  const w = lineLen + 2;
 
-  constructor(title: string, lines: string[]) {
-    this.title = title;
-    this.lines = lines;
-  }
+  const top    = "┌" + "─".repeat(w) + "┐";
+  const headerPadded = header.padEnd(w);
+  const bottom = "└" + "─".repeat(w) + "┘";
 
-  render(width: number): string[] {
-    if (this.cachedLines && this.cachedWidth === width) {
-      return this.cachedLines;
-    }
+  const body = lines.map(l => {
+    const padded = l.padEnd(w);
+    return `│${padded}│`;
+  });
 
-    const header = ` ${this.title} `;
-    const padding = width - 2;
-    const lineLen = Math.max(header.length, ...this.lines.map(l => l.length), 6);
-    const w = Math.min(lineLen + 2, padding);
-
-    const top    = "┌" + "─".repeat(w) + "┐";
-    const headerPadded = header.padEnd(w);
-    const bottom = "└" + "─".repeat(w) + "┘";
-
-    const body = this.lines.map(l => {
-      const padded = l.padEnd(w);
-      return `│${padded}│`;
-    });
-
-    this.cachedLines = [top, headerPadded, ...body, bottom];
-    this.cachedWidth = width;
-    return this.cachedLines;
-  }
-
-  invalidate(): void {
-    this.cachedWidth = undefined;
-    this.cachedLines = undefined;
-  }
+  return [top, headerPadded, ...body, bottom];
 }
 
 // ─── Shared module-level state ───────────────────────────────────────
@@ -77,8 +52,7 @@ function toggleWidget(ctx: { ui: { setWidget: (key: string, lines: string[]) => 
   if (!widgetVisible) {
     ctx.ui.setWidget(WIDGET_KEY, []);
   } else if (streamingActive) {
-    ctx.ui.setWidget(WIDGET_KEY, new BoxWidget("⚡ Token Rate",
-      ["(toggle restored)"]));
+    ctx.ui.setWidget(WIDGET_KEY, makeBox("⚡ Token Rate", ["(toggle restored)"]));
   }
   return widgetVisible;
 }
@@ -99,12 +73,12 @@ function updateWidget(ctx: { ui: { setWidget: (key: string, lines: string[]) => 
   elapsed: number;
 }) {
   if (!widgetVisible) return;
-  ctx.ui.setWidget(WIDGET_KEY, new BoxWidget("⚡ Token Rate",
-    [`Current:  ${data.currentRate.toFixed(1)} tok/s`,
-     `Average:  ${data.avgRate.toFixed(1)} tok/s`,
-     `Tokens:   ${data.tokens}`,
-     `Elapsed:  ${formatMs(data.elapsed)}`],
-  ));
+  ctx.ui.setWidget(WIDGET_KEY, makeBox("⚡ Token Rate", [
+    `Current:  ${data.currentRate.toFixed(1)} tok/s`,
+    `Average:  ${data.avgRate.toFixed(1)} tok/s`,
+    `Tokens:   ${data.tokens}`,
+    `Elapsed:  ${formatMs(data.elapsed)}`,
+  ]));
 }
 
 function updateWidgetFinal(ctx: { ui: { setWidget: (key: string, lines: string[]) => void } }, data: {
@@ -114,12 +88,12 @@ function updateWidgetFinal(ctx: { ui: { setWidget: (key: string, lines: string[]
   sessionTotal: number;
 }) {
   if (!widgetVisible) return;
-  ctx.ui.setWidget(WIDGET_KEY, new BoxWidget("⚡ Token Rate",
-    [`Total:    ${data.tokens} tokens`,
-     `Time:     ${formatMs(data.time)}`,
-     `Avg rate: ${data.avgRate.toFixed(1)} tok/s`,
-     `Session:  ${data.sessionTotal} tokens`],
-  ));
+  ctx.ui.setWidget(WIDGET_KEY, makeBox("⚡ Token Rate", [
+    `Total:    ${data.tokens} tokens`,
+    `Time:     ${formatMs(data.time)}`,
+    `Avg rate: ${data.avgRate.toFixed(1)} tok/s`,
+    `Session:  ${data.sessionTotal} tokens`,
+  ]));
 }
 
 // ─── Extension ───────────────────────────────────────────────────────

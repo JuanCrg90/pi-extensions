@@ -70,8 +70,6 @@ function updateWidgetFinal(ctx: { ui: { setWidget: (key: string, lines: string[]
     `  Time:     ${formatMs(data.time)}`,
     `  Avg rate: ${data.avgRate.toFixed(1)} tok/s`,
     `  Session:  ${data.sessionTotal} tokens`,
-    `  `,
-    `  💡 Stays visible after generation`,
   ]);
 }
 

@@ -1,0 +1,31 @@
+{
+  "name": "@juancrg90/token-rate",
+  "version": "1.0.0",
+  "description": "Real-time token rate tracker for Pi — displays tokens/sec in a styled widget while the model generates.",
+  "keywords": ["pi-package", "token-rate", "extension", "pi", "pi-tui"],
+  "homepage": "https://github.com/JuanCrg90/pi-extensions/tree/main/packages/token-rate",
+  "bugs": {
+    "url": "https://github.com/JuanCrg90/pi-extensions/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JuanCrg90/pi-extensions.git",
+    "directory": "packages/token-rate"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.ts",
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "engines": {
+    "pi": ">=0.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

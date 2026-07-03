@@ -1,0 +1,20 @@
+{
+  "name": "pi-extensions",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Mono-repo for Pi extensions — a collection of high-quality, open-source extensions for the Pi AI assistant.",
+  "keywords": ["pi-package", "extensions", "pi", "pi-tui"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JuanCrg90/pi-extensions.git"
+  },
+  "author": "JuanCrg90 <https://github.com/JuanCrg90>",
+  "license": "MIT",
+  "scripts": {
+    "publish:all": "pnpm -r publish --access public",
+    "publish:token-rate": "pnpm --filter @juancrg90/token-rate publish --access public"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}

@@ -15,10 +15,53 @@
 
 import type { ExtensionAPI, AssistantMessageEvent } from "@earendil-works/pi-coding-agent";
 
+
 const WIDGET_KEY = "token-rate";
 
 // Approximate: 1 token ≈ 4 chars for English text
 const CHARS_PER_TOKEN = 4;
+
+// ─── Box widget component ────────────────────────────────────────────
+class BoxWidget implements Component {
+  private title: string;
+  private lines: string[];
+  private cachedWidth?: number;
+  private cachedLines?: string[];
+
+  constructor(title: string, lines: string[]) {
+    this.title = title;
+    this.lines = lines;
+  }
+
+  render(width: number): string[] {
+    if (this.cachedLines && this.cachedWidth === width) {
+      return this.cachedLines;
+    }
+
+    const header = ` ${this.title} `;
+    const padding = width - 2;
+    const lineLen = Math.max(header.length, ...this.lines.map(l => l.length), 6);
+    const w = Math.min(lineLen + 2, padding);
+
+    const top    = "┌" + "─".repeat(w) + "┐";
+    const headerPadded = header.padEnd(w);
+    const bottom = "└" + "─".repeat(w) + "┘";
+
+    const body = this.lines.map(l => {
+      const padded = l.padEnd(w);
+      return `│${padded}│`;
+    });
+
+    this.cachedLines = [top, headerPadded, ...body, bottom];
+    this.cachedWidth = width;
+    return this.cachedLines;
+  }
+
+  invalidate(): void {
+    this.cachedWidth = undefined;
+    this.cachedLines = undefined;
+  }
+}
 
 // ─── Shared module-level state ───────────────────────────────────────
 let widgetVisible = true;
@@ -34,10 +77,8 @@ function toggleWidget(ctx: { ui: { setWidget: (key: string, lines: string[]) => 
   if (!widgetVisible) {
     ctx.ui.setWidget(WIDGET_KEY, []);
   } else if (streamingActive) {
-    // Re-show immediately if streaming is active
-    ctx.ui.setWidget(WIDGET_KEY, [
-      "  ⚡ Token Rate (toggle restored)",
-    ]);
+    ctx.ui.setWidget(WIDGET_KEY, new BoxWidget("⚡ Token Rate",
+      ["(toggle restored)"]));
   }
   return widgetVisible;
 }
@@ -58,14 +99,12 @@ function updateWidget(ctx: { ui: { setWidget: (key: string, lines: string[]) => 
   elapsed: number;
 }) {
   if (!widgetVisible) return;
-  ctx.ui.setWidget(WIDGET_KEY, [
-    "  ⚡ Token Rate",
-    "  ─────────────────",
-    `  Current:  ${data.currentRate.toFixed(1)} tok/s`,
-    `  Average:  ${data.avgRate.toFixed(1)} tok/s`,
-    `  Tokens:   ${data.tokens}`,
-    `  Elapsed:  ${formatMs(data.elapsed)}`,
-  ]);
+  ctx.ui.setWidget(WIDGET_KEY, new BoxWidget("⚡ Token Rate",
+    [`Current:  ${data.currentRate.toFixed(1)} tok/s`,
+     `Average:  ${data.avgRate.toFixed(1)} tok/s`,
+     `Tokens:   ${data.tokens}`,
+     `Elapsed:  ${formatMs(data.elapsed)}`],
+  ));
 }
 
 function updateWidgetFinal(ctx: { ui: { setWidget: (key: string, lines: string[]) => void } }, data: {
@@ -75,14 +114,12 @@ function updateWidgetFinal(ctx: { ui: { setWidget: (key: string, lines: string[]
   sessionTotal: number;
 }) {
   if (!widgetVisible) return;
-  ctx.ui.setWidget(WIDGET_KEY, [
-    "  ⚡ Token Rate",
-    "  ─────────────────",
-    `  Total:    ${data.tokens} tokens`,
-    `  Time:     ${formatMs(data.time)}`,
-    `  Avg rate: ${data.avgRate.toFixed(1)} tok/s`,
-    `  Session:  ${data.sessionTotal} tokens`,
-  ]);
+  ctx.ui.setWidget(WIDGET_KEY, new BoxWidget("⚡ Token Rate",
+    [`Total:    ${data.tokens} tokens`,
+     `Time:     ${formatMs(data.time)}`,
+     `Avg rate: ${data.avgRate.toFixed(1)} tok/s`,
+     `Session:  ${data.sessionTotal} tokens`],
+  ));
 }
 
 // ─── Extension ───────────────────────────────────────────────────────

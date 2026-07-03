@@ -21,13 +21,25 @@ const WIDGET_KEY = "token-rate";
 const CHARS_PER_TOKEN = 4;
 
 // ─── Shared module-level state ───────────────────────────────────────
-let widgetVisible = false;
+let widgetVisible = true;
+let streamingActive = false;
 
 function clearWidget(ctx: { ui: { setWidget: (key: string, lines: string[]) => void } }) {
-  if (widgetVisible) {
+  ctx.ui.setWidget(WIDGET_KEY, []);
+  widgetVisible = false;
+}
+
+function toggleWidget(ctx: { ui: { setWidget: (key: string, lines: string[]) => void } }): boolean {
+  widgetVisible = !widgetVisible;
+  if (!widgetVisible) {
     ctx.ui.setWidget(WIDGET_KEY, []);
-    widgetVisible = false;
+  } else if (streamingActive) {
+    // Re-show immediately if streaming is active
+    ctx.ui.setWidget(WIDGET_KEY, [
+      "  ⚡ Token Rate (toggle restored)",
+    ]);
   }
+  return widgetVisible;
 }
 
 function formatMs(ms: number): string {
@@ -45,7 +57,7 @@ function updateWidget(ctx: { ui: { setWidget: (key: string, lines: string[]) => 
   tokens: number;
   elapsed: number;
 }) {
-  widgetVisible = true;
+  if (!widgetVisible) return;
   ctx.ui.setWidget(WIDGET_KEY, [
     "  ⚡ Token Rate",
     "  ─────────────────",
@@ -62,7 +74,7 @@ function updateWidgetFinal(ctx: { ui: { setWidget: (key: string, lines: string[]
   avgRate: number;
   sessionTotal: number;
 }) {
-  widgetVisible = true;
+  if (!widgetVisible) return;
   ctx.ui.setWidget(WIDGET_KEY, [
     "  ⚡ Token Rate",
     "  ─────────────────",
@@ -90,6 +102,7 @@ export default function (pi: ExtensionAPI) {
     if (event.message.role === "assistant") {
       streamingText = "";
       tracker = null;
+      streamingActive = true;
     }
   });
 
@@ -147,6 +160,8 @@ export default function (pi: ExtensionAPI) {
     if (event.message.role !== "assistant") return;
     if (!tracker) return;
 
+    streamingActive = false;
+
     const totalTime = Date.now() - tracker.startTime;
     const totalTokens = event.message.usage?.total ?? Math.ceil(streamingText.length / CHARS_PER_TOKEN);
     const avgRate = totalTime > 0
@@ -162,10 +177,30 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_start", (_event, ctx) => {
     sessionTotalTokens = 0;
+    streamingActive = false;
     clearWidget(ctx);
   });
 
   pi.on("session_shutdown", (_event, ctx) => {
+    streamingActive = false;
     clearWidget(ctx);
+  });
+
+  // Keyboard shortcut: ctrl+shift+t
+  pi.registerShortcut("ctrl+shift+t", {
+    description: "Toggle token rate widget",
+    handler: async (ctx) => {
+      const visible = toggleWidget(ctx);
+      ctx.ui.notify(`Token rate widget: ${visible ? "on" : "off"}`, "info");
+    },
+  });
+
+  // Slash command: /toggle-token-rate
+  pi.registerCommand("toggle-token-rate", {
+    description: "Toggle token rate widget visibility",
+    handler: async (_args, ctx) => {
+      const visible = toggleWidget(ctx);
+      ctx.ui.notify(`Token rate widget: ${visible ? "on" : "off"}`, "info");
+    },
   });
 }

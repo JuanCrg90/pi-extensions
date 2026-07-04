@@ -2,11 +2,12 @@
 
 Mono-repo for [pi](https://github.com/earendil-works/pi-mono) extensions — a collection of high-quality, open-source extensions for the Pi AI assistant.
 
-## 📦 Available Extensions
+## 📦 Available Packages
 
-| Package | Description | Install |
-|---------|-------------|---------|
-| **token-rate** | Real-time token rate tracker — displays tokens/sec while the model generates | `pi install npm:@juancrg90/token-rate` |
+| Package | Type | Description | Install |
+|---------|------|-------------|---------|
+| **token-rate** | Extension | Real-time token rate tracker — displays tokens/sec while the model generates | `pi install npm:@juancrg90/token-rate` |
+| **dracula-themes** | Theme pack | Dracula Classic (`dracula`) + Alucard Classic (`alucard`) for Pi | `pi install npm:@juancrg90/dracula-themes` |
 
 ## 🏗 Structure
 

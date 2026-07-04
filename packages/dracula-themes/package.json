@@ -1,0 +1,25 @@
+{
+  "name": "@juancrg90/dracula-themes",
+  "version": "1.0.0",
+  "description": "Official Dracula Classic and Alucard Classic themes for Pi.",
+  "keywords": ["pi-package", "pi", "pi-theme", "theme", "dracula", "alucard"],
+  "homepage": "https://github.com/JuanCrg90/pi-extensions/tree/main/packages/dracula-themes",
+  "bugs": {
+    "url": "https://github.com/JuanCrg90/pi-extensions/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JuanCrg90/pi-extensions.git",
+    "directory": "packages/dracula-themes"
+  },
+  "license": "MIT",
+  "pi": {
+    "themes": ["./themes"]
+  },
+  "engines": {
+    "pi": ">=0.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

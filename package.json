@@ -12,7 +12,8 @@
   "license": "MIT",
   "scripts": {
     "publish:all": "pnpm -r publish --access public",
-    "publish:token-rate": "pnpm --filter @juancrg90/token-rate publish --access public"
+    "publish:token-rate": "pnpm --filter @juancrg90/token-rate publish --access public",
+    "publish:dracula-themes": "pnpm --filter @juancrg90/dracula-themes publish --access public"
   },
   "workspaces": [
     "packages/*"

@@ -2,6 +2,32 @@
 
 Nightfox theme collection for [pi](https://github.com/earendil-works/pi-mono), based on [edeneast/nightfox.nvim](https://github.com/edeneast/nightfox.nvim).
 
+## Demo
+
+### Nightfox (dark)
+
+![Nightfox theme](screenshots/nightfox.png)
+
+### Duskfox (dark)
+
+![Duskfox theme](screenshots/duskfox.png)
+
+### Nordfox (dark)
+
+![Nordfox theme](screenshots/nordfox.png)
+
+### Terafox (dark)
+
+![Terafox theme](screenshots/terafox.png)
+
+### Dawnfox (light)
+
+![Dawnfox theme](screenshots/dawnfox.png)
+
+### Dayfox (light)
+
+![Dayfox theme](screenshots/dayfox.png)
+
 ## Included themes
 
 - `nightfox` — dark
@@ -50,6 +76,13 @@ Or set in settings JSON:
 nightfox-themes/
 ├── package.json
 ├── README.md
+├── screenshots/
+│   ├── dayfox.png
+│   ├── dawnfox.png
+│   ├── duskfox.png
+│   ├── nightfox.png
+│   ├── nordfox.png
+│   └── terafox.png
 └── themes/
     ├── carbonfox.json
     ├── dawnfox.json

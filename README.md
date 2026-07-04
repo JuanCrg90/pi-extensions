@@ -8,6 +8,7 @@ Mono-repo for [pi](https://github.com/earendil-works/pi-mono) extensions — a c
 |---------|------|-------------|---------|
 | **token-rate** | Extension | Real-time token rate tracker — displays tokens/sec while the model generates | `pi install npm:@juancrg90/token-rate` |
 | **dracula-themes** | Theme pack | Dracula Classic (`dracula`) + Alucard Classic (`alucard`) for Pi | `pi install npm:@juancrg90/dracula-themes` |
+| **nightfox-themes** | Theme pack | Nightfox collection (7 themes: dark + light) for Pi | `pi install npm:@juancrg90/nightfox-themes` |
 
 ## 🏗 Structure
 
@@ -18,6 +19,16 @@ pi-extensions/
 │   │   ├── package.json
 │   │   ├── src/
 │   │   ├── index.ts
+│   │   └── README.md
+│   ├── dracula-themes/
+│   │   ├── package.json
+│   │   ├── screenshots/
+│   │   ├── themes/
+│   │   └── README.md
+│   ├── nightfox-themes/
+│   │   ├── package.json
+│   │   ├── screenshots/
+│   │   ├── themes/
 │   │   └── README.md
 │   └── ...
 ├── package.json        # Root workspace config

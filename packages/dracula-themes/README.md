@@ -2,6 +2,16 @@
 
 Official-inspired [Dracula Classic](https://draculatheme.com/spec) and Alucard Classic themes for [pi](https://github.com/earendil-works/pi-mono).
 
+## Demo
+
+### Dracula (dark)
+
+![Dracula theme](screenshots/dracula-theme.png)
+
+### Alucard (light)
+
+![Alucard theme](screenshots/alucard-theme.png)
+
 ## Included themes
 
 - `dracula` — dark
@@ -40,6 +50,9 @@ Or set in settings JSON:
 dracula-themes/
 ├── package.json
 ├── README.md
+├── screenshots/
+│   ├── dracula-theme.png
+│   └── alucard-theme.png
 └── themes/
     ├── alucard.json
     └── dracula.json

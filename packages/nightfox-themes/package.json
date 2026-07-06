@@ -1,0 +1,25 @@
+{
+  "name": "@juancrg90/nightfox-themes",
+  "version": "1.0.0",
+  "description": "Nightfox theme collection for Pi, based on edeneast/nightfox.nvim.",
+  "keywords": ["pi-package", "pi", "pi-theme", "theme", "nightfox", "dayfox", "dawnfox", "duskfox", "nordfox", "terafox", "carbonfox"],
+  "homepage": "https://github.com/JuanCrg90/pi-extensions/tree/main/packages/nightfox-themes",
+  "bugs": {
+    "url": "https://github.com/JuanCrg90/pi-extensions/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JuanCrg90/pi-extensions.git",
+    "directory": "packages/nightfox-themes"
+  },
+  "license": "MIT",
+  "pi": {
+    "themes": ["./themes"]
+  },
+  "engines": {
+    "pi": ">=0.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

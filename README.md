@@ -4,11 +4,11 @@ Mono-repo for [pi](https://github.com/earendil-works/pi-mono) extensions — a c
 
 ## 📦 Available Packages
 
-| Package | Type | Description | Install |
-|---------|------|-------------|---------|
-| **token-rate** | Extension | Real-time token rate tracker — displays tokens/sec while the model generates | `pi install npm:@juancrg90/token-rate` |
-| **dracula-themes** | Theme pack | Dracula Classic (`dracula`) + Alucard Classic (`alucard`) for Pi | `pi install npm:@juancrg90/dracula-themes` |
-| **nightfox-themes** | Theme pack | Nightfox collection (7 themes: dark + light) for Pi | `pi install npm:@juancrg90/nightfox-themes` |
+| Package | Type | Description | Install | Details |
+|---------|------|-------------|---------|---------|
+| **token-rate** | Extension | Real-time token rate tracker — displays tokens/sec while the model generates | `pi install npm:@juancrg90/token-rate` | [README](packages/token-rate/README.md) |
+| **dracula-themes** | Theme pack | Dracula Classic (`dracula`) + Alucard Classic (`alucard`) for Pi | `pi install npm:@juancrg90/dracula-themes` | [README](packages/dracula-themes/README.md) |
+| **nightfox-themes** | Theme pack | Nightfox collection (7 themes: dark + light) for Pi | `pi install npm:@juancrg90/nightfox-themes` | [README](packages/nightfox-themes/README.md) |
 
 ## 🏗 Structure
 

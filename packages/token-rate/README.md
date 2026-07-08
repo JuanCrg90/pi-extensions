@@ -85,6 +85,8 @@ Toggle the visibility of the performance dashboard:
 ### Shortcuts
 *   `Ctrl + Shift + T` - Toggle the statistics dashboard instantly.
 
+> **tmux note:** `Ctrl + Shift + letter` shortcuts may not be forwarded reliably by some `tmux` + terminal setups. If the shortcut does not work inside `tmux`, verify your terminal/tmux extended key support (for example `set -g xterm-keys on`) or use `/toggle-token-rate` instead.
+
 ### Visuals
 When active, you will see a styled box above or below the main interaction area showing:
 - **Current**: The current flow speed.

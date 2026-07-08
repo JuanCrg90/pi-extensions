@@ -71,6 +71,22 @@ describe("serializeSingleAnswer", () => {
     });
   });
 
+  it("serializes confirmed Other... single-select answer", () => {
+    const q = makeQuestion();
+    const state = makeState({
+      selectedOptionId: "__other__",
+      otherInputMode: false,
+      otherText: "Angular",
+    });
+    const result = serializeSingleAnswer(q, state);
+    assert.deepStrictEqual(result, {
+      kind: "single",
+      label: "Other...",
+      other: true,
+      text: "Angular",
+    });
+  });
+
   it("prioritizes Other... over built-in selection", () => {
     const q = makeQuestion();
     const state = makeState({

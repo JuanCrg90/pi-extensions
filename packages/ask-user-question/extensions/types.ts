@@ -123,4 +123,9 @@ export interface DialogState {
   statusMessage: string;
   /** Whether we are in review/submit mode (multi-question only). */
   inReviewMode: boolean;
+  /** Optional metadata preserved in the final result. */
+  metadata?: {
+    source?: string;
+    flowId?: string;
+  };
 }

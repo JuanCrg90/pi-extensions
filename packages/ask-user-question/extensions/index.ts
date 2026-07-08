@@ -132,35 +132,35 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
         let dialogResult: AskUserQuestionResult | null = null;
         let isDismissed = false;
 
-        // Create a handle reference for the component
-        let dialogHandle: Awaited<ReturnType<typeof ctx.ui.custom>> | undefined;
-
         const customHandle = ctx.ui.custom<AskUserQuestionResult | null>(
-          (_, __, ___, done) => {
-            dialogHandle = customHandle;
-            return createDialogComponent(
-              state,
-              () => {
-                // All answers collected — build result and close
-                dialogResult = buildResult(
-                  state.questions,
-                  state.questionStates,
-                  false,
-                  state.metadata,
-                );
-                done(dialogResult);
-              },
-              (ev: DialogCallback) => {
-                dialogHandle?.requestRender();
-                // Emit lightweight updates for key milestones
-                if (ev.type === "answered") {
-                  _onUpdate?.({
-                    content: [{ type: "text", text: `Question answered` }],
-                  });
-                }
-              },
-            );
-          },
+          (tui, _theme, _kb, done) => createDialogComponent(
+            state,
+            () => {
+              // All answers collected — build result and close
+              dialogResult = buildResult(
+                state.questions,
+                state.questionStates,
+                false,
+                state.metadata,
+              );
+              done(dialogResult);
+            },
+            (ev: DialogCallback) => {
+              if (ev.type === "dismiss") {
+                done(null);
+                return;
+              }
+
+              tui.requestRender();
+
+              // Emit lightweight updates for key milestones
+              if (ev.type === "answered") {
+                _onUpdate?.({
+                  content: [{ type: "text", text: "Question answered" }],
+                });
+              }
+            },
+          ),
           { overlay: true },
         );
 
@@ -226,54 +226,59 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
     },
 
     // ─── Custom renderCall ──────────────────────────────────────────
-    renderCall(args: AskUserQuestionParams, theme: { fg: (color: string, text: string) => string }, _context: unknown): string[] {
-      const lines = ["AskUserQuestion"];
+    renderCall(args: AskUserQuestionParams, theme: { fg: (color: string, text: string) => string; bold: (text: string) => string }, _context: unknown): Text {
       const qCount = args.questions.length;
-      lines.push(`  ${qCount} question${qCount !== 1 ? "s" : ""}`);
-      lines.push(`  Headers: ${args.questions.map((q) => q.header).join(", ")}`);
-      return lines;
+      const headers = args.questions.map((q) => q.header).join(", ");
+      const text = [
+        theme.fg("toolTitle", theme.bold("AskUserQuestion")),
+        theme.fg("muted", `  ${qCount} question${qCount !== 1 ? "s" : ""}`),
+        theme.fg("dim", `  Headers: ${headers}`),
+      ].join("\n");
+      return new Text(text, 0, 0);
     },
 
     // ─── Custom renderResult ────────────────────────────────────────
     renderResult(
-      result: AskUserQuestionResult,
+      result: { content: Array<{ type: string; text?: string }>; details?: unknown },
       _options: unknown,
       theme: { fg: (color: string, text: string) => string },
       _context: unknown,
-    ): string[] {
+    ): Text {
+      const details = result.details as AskUserQuestionResult | undefined;
+      if (!details) {
+        const text = result.content[0];
+        return new Text(text?.type === "text" ? text.text ?? "" : "", 0, 0);
+      }
+
       const lines: string[] = [];
 
-      if (result.cancelled) {
-        lines.push(theme.fg("warning", "⚠ Question dialog dismissed"));
-        return lines;
+      if (details.cancelled) {
+        return new Text(theme.fg("warning", "⚠ Question dialog dismissed"), 0, 0);
       }
 
       lines.push("Question results:");
 
-      for (const [qid, answer] of Object.entries(result.answers ?? {})) {
+      for (const [qid, answer] of Object.entries(details.answers ?? {})) {
         if (answer.kind === "single") {
           lines.push(`  ${qid}: ${answer.label}${answer.other ? ` (Other: ${answer.text})` : ""}`);
+        } else if (answer.empty) {
+          lines.push(`  ${qid}: (empty)`);
         } else {
-          if (answer.empty) {
-            lines.push(`  ${qid}: (empty)`);
-          } else {
-            const labels = answer.selections.map((s) => s.label).join(", ");
-            lines.push(`  ${qid}: [${labels}]`);
-          }
+          const labels = answer.selections.map((s) => s.label).join(", ");
+          lines.push(`  ${qid}: [${labels}]`);
         }
       }
 
-      // Hint about annotations
-      if (result.annotations) {
-        const hasAnnotations = Object.values(result.annotations).some(
+      if (details.annotations) {
+        const hasAnnotations = Object.values(details.annotations).some(
           (a) => a.questionNotes || a.optionNotes,
         );
         if (hasAnnotations) {
-          lines.push(`  (annotations present — see details)`);
+          lines.push("  (annotations present — see details)");
         }
       }
 
-      return lines;
+      return new Text(lines.join("\n"), 0, 0);
     },
   });
 }

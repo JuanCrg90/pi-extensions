@@ -16,13 +16,17 @@ export function serializeSingleAnswer(
   question: Question,
   state: QuestionState,
 ): AnswerValue | undefined {
-  // Check for "Other..." answer
-  if (state.otherInputMode && state.otherText.trim().length > 0) {
+  const otherText = state.otherText.trim();
+
+  // Check for "Other..." answer.
+  // After confirmation, otherInputMode is false and selectedOptionId is set
+  // to "__other__", so key off the saved text as well.
+  if (otherText.length > 0 && (state.otherInputMode || state.selectedOptionId === "__other__")) {
     return {
       kind: "single",
       label: "Other...",
       other: true,
-      text: state.otherText.trim(),
+      text: otherText,
     };
   }
 

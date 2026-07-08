@@ -14,6 +14,13 @@
  *   Then restart pi — it auto-discovers on startup.
  *
  * Or test quickly:  pi -e ./token-rate
+ *
+ * Configuration:
+ *   ~/.pi/agent/token-rate.json (optional)
+ *   {
+ *     "widgetVisible": true   // default — widget visible during streaming
+ *   }
+ *   Omit the file or the key to default to `true`. Set `false` to hide.
  */
 
 import type { ExtensionAPI, AssistantMessageEvent } from "@earendil-works/pi-coding-agent";
@@ -26,6 +33,9 @@ import {
   Key,
   truncateToWidth,
 } from "@earendil-works/pi-tui";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 
 // ─── Types ─────────────────────────────────────────────────────────────
 type SetWidgetFn = (
@@ -59,8 +69,30 @@ function formatMs(ms: number): string {
   return `${min}m${s}s`;
 }
 
+// ─── Config ───────────────────────────────────────────────────────────
+interface TokenRateConfig {
+  widgetVisible?: boolean;
+}
+
+const CONFIG_PATH = join(homedir(), ".pi", "agent", "token-rate.json");
+
+function loadConfig(): TokenRateConfig {
+  try {
+    const raw = readFileSync(CONFIG_PATH, "utf-8");
+    const parsed = JSON.parse(raw) as TokenRateConfig;
+    if (typeof parsed === "object" && parsed !== null) {
+      return parsed;
+    }
+  } catch {
+    // File missing, invalid JSON, or unreadable — fall back to defaults
+  }
+  return {};
+}
+
+const config: TokenRateConfig = loadConfig();
+
 // ─── Shared module-level state ────────────────────────────────────────
-let widgetVisible = true;
+let widgetVisible = config.widgetVisible ?? true;
 let streamingActive = false;
 
 function clearWidget(ctx: { ui: { setWidget: SetWidgetFn } }): void {
@@ -270,7 +302,6 @@ export default function (pi: ExtensionAPI): void {
   pi.on("session_start", (_event, ctx) => {
     sessionTotalTokens = 0;
     streamingActive = false;
-    clearWidget(ctx);
   });
 
   pi.on("session_shutdown", (_event, ctx) => {

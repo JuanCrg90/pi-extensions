@@ -1,6 +1,6 @@
 {
   "name": "@juancrg90/token-rate",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Real-time token rate tracker for Pi — displays tokens/sec in a styled widget while the model generates.",
   "keywords": ["pi-package", "token-rate", "extension", "pi", "pi-tui"],
   "homepage": "https://github.com/JuanCrg90/pi-extensions/tree/main/packages/token-rate",

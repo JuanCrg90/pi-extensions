@@ -56,6 +56,26 @@ This extension is built following the official **Pi-TUI Standardized Patterns** 
 *   **Component Composition**: Uses `DynamicBorder` and `Container` to maintain a clean, consistent look with the rest of the Pi interface.
 *   **Performance Caching**: Implements standard `render()` caching to minimize TUI overhead during rapid token streaming.
 
+## ⚙️ Configuration
+
+The widget is **enabled by default**. To customize behavior, create
+`~/.pi/agent/token-rate.json`:
+
+```json
+{
+  "widgetVisible": true
+}
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `widgetVisible` | boolean | `true` | Whether the widget appears during streaming |
+
+Omit the file or the `widgetVisible` key to use the default (`true`). Set to
+`false` to disable the widget entirely.
+
+Changes take effect on the next session start or after `/reload`.
+
 ## 🎮 Usage
 
 ### Slash Commands
@@ -64,6 +84,8 @@ Toggle the visibility of the performance dashboard:
 
 ### Shortcuts
 *   `Ctrl + Shift + T` - Toggle the statistics dashboard instantly.
+
+> **tmux note:** `Ctrl + Shift + letter` shortcuts may not be forwarded reliably by some `tmux` + terminal setups. If the shortcut does not work inside `tmux`, verify your terminal/tmux extended key support (for example `set -g xterm-keys on`) or use `/toggle-token-rate` instead.
 
 ### Visuals
 When active, you will see a styled box above or below the main interaction area showing:

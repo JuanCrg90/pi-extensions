@@ -1,6 +1,6 @@
 # 🧛 Dracula Themes for Pi
 
-Official-inspired [Dracula Classic](https://draculatheme.com/spec) and Alucard Classic themes for [pi](https://github.com/earendil-works/pi-mono).
+[Dracula Classic](https://draculatheme.com/spec) and Alucard Classic themes for [pi](https://github.com/earendil-works/pi-mono), inspired by the [Dracula Theme](https://draculatheme.com).
 
 ## Demo
 

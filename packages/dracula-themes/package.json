@@ -1,7 +1,7 @@
 {
   "name": "@juancrg90/dracula-themes",
   "version": "1.0.0",
-  "description": "Official Dracula Classic and Alucard Classic themes for Pi.",
+  "description": "Dracula Classic and Alucard Classic themes for Pi, inspired by the Dracula Theme.",
   "keywords": ["pi-package", "pi", "pi-theme", "theme", "dracula", "alucard"],
   "homepage": "https://github.com/JuanCrg90/pi-extensions/tree/main/packages/dracula-themes",
   "bugs": {

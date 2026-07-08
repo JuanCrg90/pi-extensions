@@ -1,0 +1,53 @@
+{
+  "name": "@juancrg90/ask-user-question",
+  "version": "0.1.0",
+  "description": "Interactive AskUserQuestion tool for Pi — pause and ask the user structured questions in the TUI with stable ID-based results.",
+  "keywords": [
+    "pi-package",
+    "ask-user-question",
+    "extension",
+    "pi",
+    "pi-tui",
+    "interactive"
+  ],
+  "homepage": "https://github.com/JuanCrg90/pi-extensions/tree/main/packages/ask-user-question",
+  "bugs": {
+    "url": "https://github.com/JuanCrg90/pi-extensions/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JuanCrg90/pi-extensions.git",
+    "directory": "packages/ask-user-question"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "./extensions/index.ts",
+  "pi": {
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.0"
+  },
+  "engines": {
+    "pi": ">=0.1.0"
+  },
+  "scripts": {
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "extensions/",
+    "README.md"
+  ],
+  "devDependencies": {
+    "tsx": "^4.23.0"
+  }
+}

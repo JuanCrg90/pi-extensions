@@ -29,6 +29,7 @@ function makeState(overrides?: Partial<QuestionState>): QuestionState {
     selectedOptionId: undefined,
     otherText: "",
     otherInputMode: false,
+    multiSelectEmptyPending: false,
     annotations: {},
     answered: false,
     ...overrides,

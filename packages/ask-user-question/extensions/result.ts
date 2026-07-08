@@ -130,7 +130,11 @@ export function buildResult(
 
     // Serialize answers keyed by question.id
     if (q.multiSelect) {
-      const answer = serializeMultiAnswer(q, state, false);
+      const answer = serializeMultiAnswer(
+        q,
+        state,
+        state.multiSelectEmptyPending,
+      );
       answers[q.id] = answer;
     } else {
       const answer = serializeSingleAnswer(q, state);

@@ -98,6 +98,8 @@ export interface QuestionState {
   otherText: string;
   /** Whether the user is in "Other..." text-input mode. */
   otherInputMode: boolean;
+  /** For multi-select: whether user confirmed empty selection. */
+  multiSelectEmptyPending: boolean;
   /** Annotations for this question. */
   annotations: QuestionAnnotations;
   /** Whether this question has been answered (Enter pressed). */

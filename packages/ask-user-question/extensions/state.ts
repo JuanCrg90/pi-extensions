@@ -88,6 +88,7 @@ export function initQuestionState(
     selectedOptionId: undefined,
     otherText: "",
     otherInputMode: false,
+    multiSelectEmptyPending: false,
     annotations: {},
     answered: false,
   };

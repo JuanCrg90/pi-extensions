@@ -176,6 +176,12 @@ export function createDialogComponent(
         onEvent({ type: "dismiss" });
         return;
       }
+      // Cancel multi-select empty-pending if active
+      if (currentQ.multiSelect && qState.multiSelectEmptyPending) {
+        qState.multiSelectEmptyPending = false;
+        state.statusMessage = "";
+        return;
+      }
       state.pendingEscape = true;
       state.statusMessage = "Press Esc again to dismiss";
       return;
@@ -241,6 +247,8 @@ export function createDialogComponent(
           questionId: currentQ.id,
           optionId: opt.id,
         });
+        // Clear empty-pending whenever user makes a selection
+        qState.multiSelectEmptyPending = false;
         state.statusMessage = qState.multiSelections.size > 0
           ? "Selection updated"
           : "Deselected";
@@ -265,8 +273,8 @@ export function createDialogComponent(
             qState.selectedOptionId = "__other__";
           }
         }
+        // Keep otherText so serialization can read it; clear input mode only
         qState.otherInputMode = false;
-        qState.otherText = "";
         markAnsweredAndAdvance(currentQ.id);
         return;
       }
@@ -274,8 +282,28 @@ export function createDialogComponent(
       // Regular confirmation
       const focusedOpt = currentQ.options[qState.focusIndex];
       if (currentQ.multiSelect) {
-        qState.answered = true;
-        markAnsweredAndAdvance(currentQ.id);
+        // Multi-select: check if empty selection
+        if (qState.multiSelections.size === 0) {
+          // No selections — require explicit confirmation
+          if (qState.multiSelectEmptyPending) {
+            // Second Enter — confirm empty
+            qState.answered = true;
+            markAnsweredAndAdvance(currentQ.id);
+          } else {
+            // First Enter — show confirmation prompt
+            qState.multiSelectEmptyPending = true;
+            state.statusMessage =
+              "No selection — Enter to confirm empty, Esc to cancel";
+            onEvent({
+              type: "answered",
+              questionId: currentQ.id,
+            });
+          }
+        } else {
+          // Has selections — confirm normally
+          qState.answered = true;
+          markAnsweredAndAdvance(currentQ.id);
+        }
       } else {
         if (focusedOpt.id === "__other__") {
           qState.otherInputMode = true;

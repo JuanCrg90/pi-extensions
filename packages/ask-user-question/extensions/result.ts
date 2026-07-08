@@ -60,6 +60,7 @@ export function serializeMultiAnswer(
 
   // Add built-in selections in focus order
   for (const optId of state.multiSelections) {
+    if (optId === "__other__") continue; // handled below
     const opt = question.options.find((o) => o.id === optId);
     if (opt) {
       selections.push({
@@ -69,12 +70,13 @@ export function serializeMultiAnswer(
     }
   }
 
-  // Add "Other..." if present
-  if (state.otherText.trim().length > 0) {
+  // Add "Other..." if it was selected
+  if (state.multiSelections.has("__other__")) {
+    const trimmed = state.otherText.trim();
     selections.push({
       label: "Other...",
       other: true,
-      text: state.otherText.trim(),
+      text: trimmed,
     });
   }
 

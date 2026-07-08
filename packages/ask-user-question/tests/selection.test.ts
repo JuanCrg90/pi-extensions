@@ -192,7 +192,7 @@ describe("multi-select serialization with other...", () => {
     };
     const state: QuestionState = {
       focusIndex: 0,
-      multiSelections: new Set(["opt1"]),
+      multiSelections: new Set(["opt1", "__other__"]),
       selectedOptionId: undefined,
       otherText: "Custom answer",
       otherInputMode: false,

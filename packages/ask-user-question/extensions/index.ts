@@ -50,6 +50,7 @@ export {
   initQuestionState,
   getAnsweredIds,
 } from "./state.js";
+export { getRenderedOptions } from "./dialog.js";
 
 // ─── Extension factory ──────────────────────────────────────────────────────────
 

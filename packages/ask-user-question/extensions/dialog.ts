@@ -6,6 +6,25 @@ import { wrapOptionIndex } from "./state.js";
 
 // ─── Render helpers ─────────────────────────────────────────────────────────────
 
+const OTHER_OPTION_ID = "__other__";
+
+/**
+ * Build the rendered options list for a question, auto-injecting
+ * the "Other..." option at the bottom.
+ */
+export function getRenderedOptions(
+  question: { id: string; multiSelect?: boolean; options: Array<{ id: string }> },
+  qState: DialogState["questionStates"] extends Map<string, infer S> ? S : never,
+): Array<{ id: string; label: string; isOther: boolean }> {
+  const opts = question.options.map((o) => ({
+    id: o.id,
+    label: o.label,
+    isOther: false,
+  }));
+  opts.push({ id: OTHER_OPTION_ID, label: "Other...", isOther: true });
+  return opts;
+}
+
 /**
  * Render the current question view as an array of display lines.
  */
@@ -20,9 +39,10 @@ export function renderQuestion(
   // Header/status
   lines.push(state.statusMessage || `❯ ${q.header}: ${q.question}`);
 
-  // Options
-  for (let i = 0; i < q.options.length; i++) {
-    const opt = q.options[i];
+  // Options (auto-inject "Other..." at the end)
+  const allOptions = getRenderedOptions(q, qState);
+  for (let i = 0; i < allOptions.length; i++) {
+    const opt = allOptions[i];
     const isFocused = i === qState.focusIndex;
     const isSelected =
       q.multiSelect
@@ -30,7 +50,7 @@ export function renderQuestion(
         : qState.selectedOptionId === opt.id;
 
     let indicator = "  ";
-    if (qState.otherInputMode && qState.otherText) {
+    if (qState.otherInputMode) {
       indicator = `  "${qState.otherText}"`;
     } else if (isSelected) {
       indicator = q.multiSelect ? "(x)" : "(•)";
@@ -41,14 +61,13 @@ export function renderQuestion(
       : `  ${opt.label}`;
 
     lines.push(`${indicator} ${label}`);
-    if (opt.description) {
-      lines.push(`    ${opt.description}`);
+    // Only show descriptions for built-in options
+    if (!opt.isOther) {
+      const realOpt = q.options.find((o) => o.id === opt.id);
+      if (realOpt?.description) {
+        lines.push(`    ${realOpt.description}`);
+      }
     }
-  }
-
-  // Other... indicator
-  if (qState.otherText) {
-    lines.push(`    Other: "${qState.otherText}"`);
   }
 
   // Navigation hint
@@ -168,8 +187,14 @@ export function createDialogComponent(
       return;
     }
 
-    // Escape warning dismiss
+    // Escape — exit input mode, or warning/dismiss
     if (char === "\x1b") {
+      // In Other... input mode: exit without losing prior text
+      if (qState.otherInputMode) {
+        qState.otherInputMode = false;
+        state.statusMessage = "";
+        return;
+      }
       if (state.pendingEscape) {
         state.statusMessage = "";
         state.pendingEscape = false;
@@ -214,13 +239,14 @@ export function createDialogComponent(
       return;
     }
 
-    // Arrow keys (A=up, B=down) and j/k
+    // Arrow keys (A=up, B=down) and j/k — wrap over built-in options + Other...
     if (char === "A" || char === "B" || char === "j" || char === "k") {
       if (qState.otherInputMode) return;
       state.pendingEscape = false;
       state.statusMessage = "";
       const isUp = char === "A" || char === "k";
-      const maxIdx = currentQ.options.length - 1;
+      // Max index includes the auto-injected "Other..." option
+      const maxIdx = currentQ.options.length;
       const prevFocus = qState.focusIndex;
       qState.focusIndex = isUp
         ? prevFocus - 1 < 0 ? maxIdx : prevFocus - 1
@@ -263,20 +289,31 @@ export function createDialogComponent(
 
       if (qState.otherInputMode) {
         // Submitting "Other..." text
-        if (currentQ.multiSelect) {
-          const text = qState.otherText.trim();
-          if (text.length > 0) {
-            qState.multiSelections.add("__other__");
-          }
-        } else {
-          if (qState.otherText.trim().length > 0) {
-            qState.selectedOptionId = "__other__";
-          }
+        const trimmed = qState.otherText.trim();
+        if (trimmed.length === 0) {
+          // Reject empty submission — stay in input mode
+          state.statusMessage = "Cannot submit empty Other... text";
+          return;
         }
-        // Keep otherText so serialization can read it; clear input mode only
-        qState.otherInputMode = false;
-        markAnsweredAndAdvance(currentQ.id);
-        return;
+        qState.otherText = trimmed;
+        if (currentQ.multiSelect) {
+          // Multi-select: toggle "Other..." selection based on text
+          if (trimmed.length > 0) {
+            qState.multiSelections.add("__other__");
+          } else {
+            qState.multiSelections.delete("__other__");
+          }
+          // Don't auto-advance; let user continue or press Esc to exit
+          qState.otherInputMode = false;
+          state.statusMessage = trimmed.length > 0 ? "Other... added" : "Other... removed";
+          return;
+        } else {
+          // Single-select: confirm and advance
+          qState.selectedOptionId = "__other__";
+          qState.otherInputMode = false;
+          markAnsweredAndAdvance(currentQ.id);
+          return;
+        }
       }
 
       // Regular confirmation
@@ -307,7 +344,7 @@ export function createDialogComponent(
       } else {
         if (focusedOpt.id === "__other__") {
           qState.otherInputMode = true;
-          qState.otherText = qState.otherText;
+          // otherText is already preserved from prior entry (if any)
           state.statusMessage = "Enter custom text (Enter to confirm, Esc to cancel)";
           onEvent({ type: "other_input", questionId: currentQ.id });
           return;
@@ -319,9 +356,10 @@ export function createDialogComponent(
       return;
     }
 
-    // o — open "Other..." input
+    // o — open "Other..." input (preloads prior custom text)
     if (char === "o") {
       qState.otherInputMode = true;
+      // otherText already preserved from prior entry (if any)
       state.statusMessage = "Enter Other... text (Enter to confirm, Esc to cancel)";
       onEvent({ type: "other_input", questionId: currentQ.id });
       return;

@@ -146,7 +146,7 @@ describe("serializeMultiAnswer", () => {
   it("serializes multi-select with built-in + Other...", () => {
     const q = makeQuestion({ multiSelect: true });
     const state = makeState({
-      multiSelections: new Set(["opt1"]),
+      multiSelections: new Set(["opt1", "__other__"]),
       otherText: "Custom",
     });
     const result = serializeMultiAnswer(q, state, false);

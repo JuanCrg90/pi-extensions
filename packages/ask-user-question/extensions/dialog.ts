@@ -1,12 +1,18 @@
 import type {
   AskUserQuestionResult,
   DialogState,
+  Question,
 } from "./types.js";
 import { wrapOptionIndex } from "./state.js";
+import { buildResult } from "./result.js";
+import {
+  renderQuestionSummary,
+  renderTabs,
+  renderReviewTab,
+  getMissingRequired,
+} from "./render.js";
 
 // ─── Render helpers ─────────────────────────────────────────────────────────────
-
-const OTHER_OPTION_ID = "__other__";
 
 /**
  * Build the rendered options list for a question, auto-injecting
@@ -21,7 +27,7 @@ export function getRenderedOptions(
     label: o.label,
     isOther: false,
   }));
-  opts.push({ id: OTHER_OPTION_ID, label: "Other...", isOther: true });
+  opts.push({ id: "__other__", label: "Other...", isOther: true });
   return opts;
 }
 
@@ -86,6 +92,7 @@ export function renderQuestion(
     lines.push("━━━ Help ━━━");
     lines.push("↑/↓ j/k  Move focus");
     lines.push("Tab/Shift+Tab  Next/prev question");
+    lines.push("←/→  Navigate tabs (multi-question)");
     lines.push("Space  Toggle selection (multi-select)");
     lines.push("Enter  Confirm answer");
     lines.push("o  Enter Other... text");
@@ -116,7 +123,10 @@ export type DialogCallback =
   | { type: "other_input"; questionId: string }
   | { type: "help_toggled"; visible: boolean }
   | { type: "note_access"; questionId: string; optionId: string }
-  | { type: "selection_toggled"; questionId: string; optionId: string };
+  | { type: "selection_toggled"; questionId: string; optionId: string }
+  | { type: "review_enter" }
+  | { type: "review_submit" }
+  | { type: "review_cancel" };
 
 /**
  * Create a TUI component for the question dialog.
@@ -143,19 +153,15 @@ export function createDialogComponent(
     const qState = state.questionStates.get(questionId);
     if (qState) qState.answered = true;
 
-    // Check if all questions answered
     const allAnswered = state.questions.every(
       (q) => state.questionStates.get(q.id)?.answered,
     );
 
     if (allAnswered) {
-      // Signal completion to the outer layer
       onEvent({ type: "answered", questionId });
-      // The outer layer will build the result and call onDone
       return;
     }
 
-    // Advance to next unanswered question
     for (let i = 0; i < state.questions.length; i++) {
       const qs = state.questionStates.get(state.questions[i].id);
       if (!qs?.answered) {
@@ -163,12 +169,6 @@ export function createDialogComponent(
         break;
       }
     }
-  }
-
-  // ── Submit the final result ──────────────────────────────────────
-  function submitResult(): void {
-    // The outer layer handles result building; this is just a signal
-    onDone();
   }
 
   // ── Input handler ────────────────────────────────────────────────
@@ -228,22 +228,71 @@ export function createDialogComponent(
       return;
     }
 
-    // Tab — next question
-    if (char === "\t") {
+    // Tab / Shift+Tab — navigate questions (enter/exit review mode)
+    if (char === "\t" || _key === "ShiftTab") {
       state.pendingEscape = false;
       state.statusMessage = "";
-      const maxIdx = state.questions.length - 1;
-      state.currentIndex = state.currentIndex >= maxIdx ? 0 : state.currentIndex + 1;
-      const ns = state.questionStates.get(state.questions[state.currentIndex].id)!;
-      ns.focusIndex = 0;
+      const isForward = char === "\t";
+
+      // In review mode: switch to first question (forward) or exit (backward)
+      if (state.inReviewMode) {
+        state.inReviewMode = false;
+        state.currentIndex = 0;
+        return;
+      }
+
+      // Check if all answered — enter review mode
+      const allAnswered = state.questions.every(
+        (q) => state.questionStates.get(q.id)?.answered,
+      );
+      if (allAnswered) {
+        state.inReviewMode = true;
+        onEvent({ type: "review_enter" });
+        return;
+      }
+
+      // Normal: navigate unanswered questions
+      for (let i = isForward ? 0 : state.questions.length - 1;
+           isForward ? i < state.questions.length : i >= 0;
+           i += isForward ? 1 : -1) {
+        const qs = state.questionStates.get(state.questions[i].id);
+        if (!qs?.answered || i === state.currentIndex) {
+          state.currentIndex = i;
+          break;
+        }
+      }
       return;
     }
 
+    // ←/→ — navigate tabs in review mode
+    if (char === "C" || char === "D") {
+      if (state.inReviewMode) {
+        state.pendingEscape = false;
+        state.statusMessage = "";
+        // C=left (submit), D=right (cancel) in the picker
+        const isRight = char === "D";
+        state.reviewPickerIndex = isRight
+          ? (state.reviewPickerIndex + 1) % 2
+          : (state.reviewPickerIndex - 1 + 2) % 2;
+        return;
+      }
+    }
+
     // Arrow keys (A=up, B=down) and j/k — wrap over built-in options + Other...
+    // Also used for review picker navigation
     if (char === "A" || char === "B" || char === "j" || char === "k") {
-      if (qState.otherInputMode) return;
       state.pendingEscape = false;
       state.statusMessage = "";
+
+      // In review mode: navigate submit/cancel picker
+      if (state.inReviewMode) {
+        const isUp = char === "A" || char === "k";
+        state.reviewPickerIndex = isUp ? 1 : 0;
+        return;
+      }
+
+      // Normal mode: option navigation
+      if (qState.otherInputMode) return;
       const isUp = char === "A" || char === "k";
       // Max index includes the auto-injected "Other..." option
       const maxIdx = currentQ.options.length;
@@ -282,10 +331,33 @@ export function createDialogComponent(
       return;
     }
 
-    // Enter — confirm / submit
+    // Enter — confirm / submit / review picker action
     if (char === "\n" || char === "\r") {
       state.pendingEscape = false;
       state.statusMessage = "";
+
+      // In review mode: submit or cancel
+      if (state.inReviewMode) {
+        if (state.reviewPickerIndex === 0) {
+          const missing = getMissingRequired(state.questions, state.questionStates);
+          if (missing.length > 0) {
+            state.statusMessage = `Missing: ${missing.join(", ")}`;
+            return;
+          }
+          const dialogResult = buildResult(
+            state.questions,
+            state.questionStates,
+            false,
+            state.metadata,
+          );
+          onEvent({ type: "review_submit" });
+          onDone(dialogResult);
+          return;
+        }
+        onEvent({ type: "review_cancel" });
+        onDone(null);
+        return;
+      }
 
       if (qState.otherInputMode) {
         // Submitting "Other..." text
@@ -391,7 +463,21 @@ export function createDialogComponent(
   // ── Render callback ──────────────────────────────────────────────
   function render(_width: number): string[] {
     if (disposed) return [];
-    return renderQuestion(state, state.currentIndex);
+    const lines: string[] = [];
+
+    // Tab bar for multi-question flows
+    if (state.questions.length > 1) {
+      lines.push(renderTabs(state, state.reviewPickerIndex).join("  "));
+    }
+
+    // If in review mode, show review tab
+    if (state.inReviewMode) {
+      lines.push(...renderReviewTab(state));
+    } else {
+      lines.push(...renderQuestion(state, state.currentIndex));
+    }
+
+    return lines;
   }
 
   // ── Return component ─────────────────────────────────────────────

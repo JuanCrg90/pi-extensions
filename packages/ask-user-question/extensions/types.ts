@@ -123,6 +123,8 @@ export interface DialogState {
   statusMessage: string;
   /** Whether we are in review/submit mode (multi-question only). */
   inReviewMode: boolean;
+  /** Picker index in review mode (0 = submit, 1 = cancel). */
+  reviewPickerIndex: number;
   /** Optional metadata preserved in the final result. */
   metadata?: {
     source?: string;

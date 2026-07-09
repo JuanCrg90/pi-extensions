@@ -51,6 +51,12 @@ export {
   getAnsweredIds,
 } from "./state.js";
 export { getRenderedOptions } from "./dialog.js";
+export {
+  renderQuestionSummary,
+  renderTabs,
+  renderReviewTab,
+  getMissingRequired,
+} from "./render.js";
 
 // ─── Extension factory ──────────────────────────────────────────────────────────
 
@@ -126,6 +132,7 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
           showHelp: false,
           statusMessage: "",
           inReviewMode: params.questions.length > 1,
+          reviewPickerIndex: 0,
           metadata,
         };
 
@@ -152,12 +159,27 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
                 return;
               }
 
+              if (ev.type === "review_cancel") {
+                done(null);
+                return;
+              }
+
               tui.requestRender();
 
               // Emit lightweight updates for key milestones
               if (ev.type === "answered") {
                 _onUpdate?.({
                   content: [{ type: "text", text: "Question answered" }],
+                });
+              }
+              if (ev.type === "review_enter") {
+                _onUpdate?.({
+                  content: [{ type: "text", text: "Entering review" }],
+                });
+              }
+              if (ev.type === "review_submit") {
+                _onUpdate?.({
+                  content: [{ type: "text", text: "Submitting answers" }],
                 });
               }
             },

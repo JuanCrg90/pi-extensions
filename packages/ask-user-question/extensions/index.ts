@@ -50,12 +50,13 @@ export {
   initQuestionState,
   getAnsweredIds,
 } from "./state.js";
-export { getRenderedOptions } from "./dialog.js";
 export {
+  getRenderedOptions,
   renderQuestionSummary,
   renderTabs,
   renderReviewTab,
   getMissingRequired,
+  renderQuestion,
 } from "./render.js";
 
 // ─── Extension factory ──────────────────────────────────────────────────────────

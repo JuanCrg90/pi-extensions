@@ -98,10 +98,17 @@ export interface QuestionState {
   otherText: string;
   /** Whether the user is in "Other..." text-input mode. */
   otherInputMode: boolean;
+  /** Whether the user is in note-edit mode. */
+  noteInputMode: boolean;
+  /** Buffer for note text being edited. */
+  noteText: string;
   /** For multi-select: whether user confirmed empty selection. */
   multiSelectEmptyPending: boolean;
   /** Annotations for this question. */
+  /** Annotations for this question. */
   annotations: QuestionAnnotations;
+  /** Which option's note is being edited (by index). -1 = none. */
+  editingNoteOptionIndex: number;
   /** Whether this question has been answered (Enter pressed). */
   answered: boolean;
 }

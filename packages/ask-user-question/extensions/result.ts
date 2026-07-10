@@ -91,6 +91,7 @@ export function serializeMultiAnswer(
 
 /**
  * Assemble question annotations from state.
+ * Deep-copies optionNotes to avoid shared-reference mutations.
  */
 export function assembleAnnotations(
   question: Question,
@@ -98,6 +99,11 @@ export function assembleAnnotations(
   selectedPreview?: string,
 ): QuestionAnnotations {
   const annotations: QuestionAnnotations = { ...state.annotations };
+
+  // Deep-copy optionNotes to avoid shared-reference mutations
+  if (state.annotations.optionNotes) {
+    annotations.optionNotes = { ...state.annotations.optionNotes };
+  }
 
   // If selectedPreview is provided and we have a preview to store
   if (selectedPreview) {

@@ -10,106 +10,9 @@ import {
   renderTabs,
   renderReviewTab,
   getMissingRequired,
+  renderQuestion,
+  getRenderedOptions,
 } from "./render.js";
-
-// ─── Render helpers ─────────────────────────────────────────────────────────────
-
-/**
- * Build the rendered options list for a question, auto-injecting
- * the "Other..." option at the bottom.
- */
-export function getRenderedOptions(
-  question: { id: string; multiSelect?: boolean; options: Array<{ id: string }> },
-  qState: DialogState["questionStates"] extends Map<string, infer S> ? S : never,
-): Array<{ id: string; label: string; isOther: boolean }> {
-  const opts = question.options.map((o) => ({
-    id: o.id,
-    label: o.label,
-    isOther: false,
-  }));
-  opts.push({ id: "__other__", label: "Other...", isOther: true });
-  return opts;
-}
-
-/**
- * Render the current question view as an array of display lines.
- */
-export function renderQuestion(
-  state: DialogState,
-  questionIdx: number,
-): string[] {
-  const q = state.questions[questionIdx];
-  const qState = state.questionStates.get(q.id)!;
-  const lines: string[] = [];
-
-  // Header/status
-  lines.push(state.statusMessage || `❯ ${q.header}: ${q.question}`);
-
-  // Options (auto-inject "Other..." at the end)
-  const allOptions = getRenderedOptions(q, qState);
-  for (let i = 0; i < allOptions.length; i++) {
-    const opt = allOptions[i];
-    const isFocused = i === qState.focusIndex;
-    const isSelected =
-      q.multiSelect
-        ? qState.multiSelections.has(opt.id)
-        : qState.selectedOptionId === opt.id;
-
-    let indicator = "  ";
-    if (qState.otherInputMode) {
-      indicator = `  "${qState.otherText}"`;
-    } else if (isSelected) {
-      indicator = q.multiSelect ? "(x)" : "(•)";
-    }
-
-    const label = isFocused
-      ? `▸ ${opt.label}`
-      : `  ${opt.label}`;
-
-    lines.push(`${indicator} ${label}`);
-    // Only show descriptions for built-in options
-    if (!opt.isOther) {
-      const realOpt = q.options.find((o) => o.id === opt.id);
-      if (realOpt?.description) {
-        lines.push(`    ${realOpt.description}`);
-      }
-    }
-  }
-
-  // Navigation hint
-  lines.push(
-    `  [Enter: confirm]  [o: Other...]  [n: note]  [?: help]  [Esc: dismiss]`,
-  );
-
-  // Review tab hint for multi-question flows
-  if (state.inReviewMode) {
-    lines.push("  Review mode — Enter on submit to finish");
-  }
-
-  // Help overlay
-  if (state.showHelp) {
-    lines.push("");
-    lines.push("━━━ Help ━━━");
-    lines.push("↑/↓ j/k  Move focus");
-    lines.push("Tab/Shift+Tab  Next/prev question");
-    lines.push("←/→  Navigate tabs (multi-question)");
-    lines.push("Space  Toggle selection (multi-select)");
-    lines.push("Enter  Confirm answer");
-    lines.push("o  Enter Other... text");
-    lines.push("n  Add/edit note for focused option");
-    lines.push("?  Toggle help");
-    lines.push("Esc  Warning → dismiss on second press");
-    lines.push("Ctrl-C  Dismiss immediately");
-    lines.push("━━━━━━━━");
-  }
-
-  // Escape warning
-  if (state.pendingEscape) {
-    lines.push("  ⚠ Press Esc again to dismiss to chat");
-  }
-
-  return lines;
-}
 
 // ─── Dialog component ───────────────────────────────────────────────────────────
 
@@ -189,6 +92,14 @@ export function createDialogComponent(
 
     // Escape — exit input mode, or warning/dismiss
     if (char === "\x1b") {
+      // In Note mode: discard and exit
+      if (qState.noteInputMode) {
+        qState.noteInputMode = false;
+        qState.noteText = "";
+        qState.editingNoteOptionIndex = -1;
+        state.statusMessage = "";
+        return;
+      }
       // In Other... input mode: exit without losing prior text
       if (qState.otherInputMode) {
         qState.otherInputMode = false;
@@ -359,6 +270,29 @@ export function createDialogComponent(
         return;
       }
 
+      // Note mode: save note
+      if (qState.noteInputMode) {
+        const noteKey =
+          qState.editingNoteOptionIndex === currentQ.options.length
+            ? "$other"
+            : currentQ.options[qState.editingNoteOptionIndex]?.id || "";
+        if (!qState.annotations.optionNotes) {
+          qState.annotations.optionNotes = {};
+        }
+        const trimmed = qState.noteText.trim();
+        if (trimmed.length === 0) {
+          // Clear the note if empty
+          delete qState.annotations.optionNotes[noteKey];
+        } else {
+          qState.annotations.optionNotes[noteKey] = qState.noteText;
+        }
+        qState.noteInputMode = false;
+        qState.noteText = "";
+        qState.editingNoteOptionIndex = -1;
+        state.statusMessage = trimmed.length > 0 ? "Note saved" : "Note cleared";
+        return;
+      }
+
       if (qState.otherInputMode) {
         // Submitting "Other..." text
         const trimmed = qState.otherText.trim();
@@ -437,25 +371,55 @@ export function createDialogComponent(
       return;
     }
 
-    // n — add/edit note for focused option
+    // n — enter note-edit mode for focused option
     if (char === "n") {
-      const focusedOpt = currentQ.options[qState.focusIndex];
+      const isOther = qState.focusIndex >= currentQ.options.length;
+      const noteKey = isOther ? "$other" : currentQ.options[qState.focusIndex].id;
+      const label = isOther ? "Other..." : currentQ.options[qState.focusIndex].label;
+
       if (!qState.annotations.optionNotes) {
         qState.annotations.optionNotes = {};
       }
-      const existing = qState.annotations.optionNotes[focusedOpt.id] || "";
-      state.statusMessage = `Note for "${focusedOpt.label}" (edit in review): ${existing || "(empty)"}`;
+      const existing = qState.annotations.optionNotes[noteKey] || "";
+
+      qState.noteInputMode = true;
+      qState.noteText = existing;
+      qState.editingNoteOptionIndex = qState.focusIndex;
+      state.statusMessage = `Note for "${label}"`;
       onEvent({
         type: "note_access",
         questionId: currentQ.id,
-        optionId: focusedOpt.id,
+        optionId: noteKey,
       });
+      return;
+    }
+
+    // Backspace — delete last character
+    if (char === "\x7f") {
+      state.pendingEscape = false;
+      state.statusMessage = "";
+
+      if (qState.noteInputMode) {
+        qState.noteText = qState.noteText.slice(0, -1);
+        return;
+      }
+
+      if (qState.otherInputMode) {
+        qState.otherText = qState.otherText.slice(0, -1);
+        return;
+      }
       return;
     }
 
     // Regular text input in "Other..." mode
     if (qState.otherInputMode && char.length === 1) {
       qState.otherText += char;
+      return;
+    }
+
+    // Regular text input in note-edit mode
+    if (qState.noteInputMode && char.length === 1) {
+      qState.noteText += char;
       return;
     }
   }

@@ -57,6 +57,9 @@ export {
   renderReviewTab,
   getMissingRequired,
   renderQuestion,
+  renderPreviewPanel,
+  hasPreviewAvailable,
+  getFocusedOptionPreview,
 } from "./render.js";
 
 // ─── Extension factory ──────────────────────────────────────────────────────────

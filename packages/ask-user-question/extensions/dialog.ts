@@ -11,7 +11,9 @@ import {
   renderReviewTab,
   getMissingRequired,
   renderQuestion,
+  renderPreviewPanel,
   getRenderedOptions,
+  hasPreviewAvailable,
 } from "./render.js";
 
 // ─── Dialog component ───────────────────────────────────────────────────────────
@@ -53,8 +55,19 @@ export function createDialogComponent(
 
   // ── Mark a question answered and advance ─────────────────────────
   function markAnsweredAndAdvance(questionId: string): void {
+    const q = state.questions[state.currentIndex];
     const qState = state.questionStates.get(questionId);
     if (qState) qState.answered = true;
+
+    // Store selected preview in annotations (single-select only)
+    if (!q.multiSelect && qState) {
+      const preview = getFocusedOptionPreview(q, qState);
+      if (preview) {
+        if (!qState.annotations.selectedPreview) {
+          qState.annotations.selectedPreview = preview;
+        }
+      }
+    }
 
     const allAnswered = state.questions.every(
       (q) => state.questionStates.get(q.id)?.answered,
@@ -425,7 +438,7 @@ export function createDialogComponent(
   }
 
   // ── Render callback ──────────────────────────────────────────────
-  function render(_width: number): string[] {
+  function render(terminalWidth: number): string[] {
     if (disposed) return [];
     const lines: string[] = [];
 
@@ -438,7 +451,22 @@ export function createDialogComponent(
     if (state.inReviewMode) {
       lines.push(...renderReviewTab(state));
     } else {
-      lines.push(...renderQuestion(state, state.currentIndex));
+      const currentQ = state.questions[state.currentIndex];
+      const qState = state.questionStates.get(currentQ.id)!;
+
+      // Use preview panel if available and not in special input modes
+      const hasPreview =
+        !currentQ.multiSelect &&
+        qState &&
+        hasPreviewAvailable(currentQ, qState) &&
+        qState.otherInputMode === false &&
+        qState.noteInputMode === false;
+
+      if (hasPreview) {
+        lines.push(...renderPreviewPanel(state, state.currentIndex, terminalWidth));
+      } else {
+        lines.push(...renderQuestion(state, state.currentIndex));
+      }
     }
 
     return lines;

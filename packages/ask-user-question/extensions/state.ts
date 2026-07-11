@@ -32,13 +32,19 @@ export function getPreferredFocusIndex(
   multiSelections: Set<string>,
   options: Array<{ id: string }>,
 ): number {
-  // Try to restore to the selected option (single-select)
+  if (selectedOptionId === "__other__") {
+    return Math.max(0, optionCount - 1);
+  }
+
   if (selectedOptionId) {
     const idx = options.findIndex((o) => o.id === selectedOptionId);
     if (idx >= 0) return idx;
   }
 
-  // Try to restore to the first multi-selection
+  if (multiSelections.has("__other__")) {
+    return Math.max(0, optionCount - 1);
+  }
+
   if (multiSelections.size > 0) {
     for (let i = 0; i < options.length; i++) {
       if (multiSelections.has(options[i].id)) {

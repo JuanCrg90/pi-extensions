@@ -27,6 +27,11 @@ import { validateParams } from "./validation.js";
 import { buildResult } from "./result.js";
 import { createDialogComponent, type DialogCallback } from "./dialog.js";
 import { initQuestionState } from "./state.js";
+import {
+  buildCallSummary,
+  buildContentText,
+  buildResultSummary,
+} from "./presentation.js";
 
 // ─── Exported types for tool input typing ───────────────────────────────────────
 
@@ -35,6 +40,7 @@ export type AskUserQuestionInput = AskUserQuestionParams;
 // ─── Re-export pure helpers for testability ─────────────────────────────────────
 
 export { validateParams } from "./validation.js";
+export { createDialogComponent } from "./dialog.js";
 export {
   serializeSingleAnswer,
   serializeMultiAnswer,
@@ -59,8 +65,14 @@ export {
   renderQuestion,
   renderPreviewPanel,
   hasPreviewAvailable,
+  questionHasAnyPreview,
   getFocusedOptionPreview,
 } from "./render.js";
+export {
+  buildCallSummary,
+  buildContentText,
+  buildResultSummary,
+} from "./presentation.js";
 
 // ─── Extension factory ──────────────────────────────────────────────────────────
 
@@ -135,131 +147,132 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
           pendingEscape: false,
           showHelp: false,
           statusMessage: "",
-          inReviewMode: params.questions.length > 1,
+          inReviewMode: false,
           reviewPickerIndex: 0,
           metadata,
         };
 
         // 5. Open interactive dialog
-        let dialogResult: AskUserQuestionResult | null = null;
-        let isDismissed = false;
+        let dialogDismissed = false;
+        let submittedUpdateSent = false;
+        let finishDialog: ((result: AskUserQuestionResult | null) => void) | undefined;
+
+        _onUpdate?.({
+          content: [{ type: "text", text: "Dialog opened" }],
+          details: { milestone: "dialog_opened", questionCount: params.questions.length },
+        });
 
         const customHandle = ctx.ui.custom<AskUserQuestionResult | null>(
-          (tui, _theme, _kb, done) => createDialogComponent(
-            state,
-            () => {
-              // All answers collected — build result and close
-              dialogResult = buildResult(
-                state.questions,
-                state.questionStates,
-                false,
-                state.metadata,
-              );
-              done(dialogResult);
-            },
-            (ev: DialogCallback) => {
-              if (ev.type === "dismiss") {
-                done(null);
-                return;
-              }
+          (tui, _theme, _kb, done) => {
+            finishDialog = done;
+            return createDialogComponent(
+              state,
+              () => {
+                const dialogResult = buildResult(
+                  state.questions,
+                  state.questionStates,
+                  false,
+                  state.metadata,
+                );
+                done(dialogResult);
+              },
+              (ev: DialogCallback) => {
+                if (ev.type === "dismiss") {
+                  dialogDismissed = true;
+                  _onUpdate?.({
+                    content: [{ type: "text", text: "Dialog dismissed" }],
+                    details: { milestone: "dismissed", reason: "escape_or_ctrl_c" },
+                  });
+                  done(null);
+                  return;
+                }
 
-              if (ev.type === "review_cancel") {
-                done(null);
-                return;
-              }
+                if (ev.type === "review_cancel") {
+                  dialogDismissed = true;
+                  _onUpdate?.({
+                    content: [{ type: "text", text: "Dialog dismissed" }],
+                    details: { milestone: "dismissed", reason: "review_cancel" },
+                  });
+                  done(null);
+                  return;
+                }
 
-              tui.requestRender();
+                tui.requestRender();
 
-              // Emit lightweight updates for key milestones
-              if (ev.type === "answered") {
-                _onUpdate?.({
-                  content: [{ type: "text", text: "Question answered" }],
-                });
-              }
-              if (ev.type === "review_enter") {
-                _onUpdate?.({
-                  content: [{ type: "text", text: "Entering review" }],
-                });
-              }
-              if (ev.type === "review_submit") {
-                _onUpdate?.({
-                  content: [{ type: "text", text: "Submitting answers" }],
-                });
-              }
-            },
-          ),
+                if (ev.type === "answered") {
+                  _onUpdate?.({
+                    content: [{ type: "text", text: "Question answered" }],
+                    details: { milestone: "question_answered", questionId: ev.questionId },
+                  });
+                }
+                if (ev.type === "review_enter") {
+                  _onUpdate?.({
+                    content: [{ type: "text", text: "Review ready" }],
+                    details: { milestone: "review_ready" },
+                  });
+                }
+                if (ev.type === "review_submit") {
+                  submittedUpdateSent = true;
+                  _onUpdate?.({
+                    content: [{ type: "text", text: "Answers submitted" }],
+                    details: { milestone: "submitted" },
+                  });
+                }
+              },
+            );
+          },
           { overlay: true },
-        );
+        ) as Promise<AskUserQuestionResult | null> & { close?: () => void };
 
-        // Await the dialog — resolves when done() is called
+        const abortHandler = () => {
+          dialogDismissed = true;
+          _onUpdate?.({
+            content: [{ type: "text", text: "Dialog dismissed" }],
+            details: { milestone: "dismissed", reason: "signal_abort" },
+          });
+          finishDialog?.(null);
+          customHandle.close?.();
+        };
+
+        if (_signal?.aborted) {
+          abortHandler();
+        } else {
+          _signal?.addEventListener("abort", abortHandler, { once: true });
+        }
+
         const dialogAnswer = await customHandle;
+        _signal?.removeEventListener("abort", abortHandler);
 
-        // If done(null) was called (dismiss), mark as dismissed
-        if (dialogAnswer === null) {
-          isDismissed = true;
-        } else {
-          dialogResult = dialogAnswer;
-        }
+        const finalResult = dialogDismissed || dialogAnswer === null
+          ? ({ cancelled: true, metadata } as AskUserQuestionResult)
+          : (dialogAnswer ?? { cancelled: true, metadata });
 
-        // 6. Restore working indicator
-        if (ctx.mode === "tui" && ctx.hasUI) {
-          ctx.ui.setWorkingVisible(true);
-        }
-
-        // 8. Build final result and content text
-        const finalResult = isDismissed
-          ? { cancelled: true } as AskUserQuestionResult
-          : (dialogResult ?? { cancelled: true });
-
-        let contentText = "";
-        if (finalResult.cancelled) {
-          contentText = "User dismissed the question dialog.";
-        } else {
-          const parts: string[] = [];
-          for (const [qid, answer] of Object.entries(finalResult.answers ?? {})) {
-            if (answer.kind === "single") {
-              parts.push(
-                `  ${qid}: ${answer.label}${answer.other ? ` (Other: ${answer.text})` : ""}`,
-              );
-            } else {
-              const selLabels = answer.selections
-                .map((s) => `${s.label}${s.other ? ` (Other: ${s.text})` : ""}`)
-                .join(", ");
-              parts.push(`  ${qid}: [${answer.empty ? "empty" : selLabels}]`);
-            }
-          }
-          contentText = parts.join("\n");
-        }
-
-        // 9. Emit final update if submitted
-        if (!finalResult.cancelled && _onUpdate) {
-          _onUpdate({
-            content: [{ type: "text", text: `All questions answered.` }],
+        if (!finalResult.cancelled && !submittedUpdateSent) {
+          _onUpdate?.({
+            content: [{ type: "text", text: "Answers submitted" }],
+            details: { milestone: "submitted" },
           });
         }
 
         return {
-          content: [{ type: "text", text: contentText }],
+          content: [{ type: "text", text: buildContentText(finalResult) }],
           details: finalResult,
           terminate: finalResult.cancelled ? true : undefined,
         };
-      } catch (err) {
-        // Always restore working indicator on error
+      } finally {
         if (ctx.mode === "tui" && ctx.hasUI) {
           ctx.ui.setWorkingVisible(true);
         }
-        throw err;
       }
     },
 
     // ─── Custom renderCall ──────────────────────────────────────────
     renderCall(args: AskUserQuestionParams, theme: { fg: (color: string, text: string) => string; bold: (text: string) => string }, _context: unknown): Text {
-      const qCount = args.questions.length;
-      const headers = args.questions.map((q) => q.header).join(", ");
+      const [title, count, headers] = buildCallSummary(args);
       const text = [
-        theme.fg("toolTitle", theme.bold("AskUserQuestion")),
-        theme.fg("muted", `  ${qCount} question${qCount !== 1 ? "s" : ""}`),
-        theme.fg("dim", `  Headers: ${headers}`),
+        theme.fg("toolTitle", theme.bold(title)),
+        theme.fg("muted", `  ${count}`),
+        theme.fg("dim", `  ${headers}`),
       ].join("\n");
       return new Text(text, 0, 0);
     },
@@ -277,34 +290,10 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
         return new Text(text?.type === "text" ? text.text ?? "" : "", 0, 0);
       }
 
-      const lines: string[] = [];
-
+      const lines = buildResultSummary(details);
       if (details.cancelled) {
-        return new Text(theme.fg("warning", "⚠ Question dialog dismissed"), 0, 0);
+        return new Text(theme.fg("warning", lines[0] ?? "⚠ Question dialog dismissed"), 0, 0);
       }
-
-      lines.push("Question results:");
-
-      for (const [qid, answer] of Object.entries(details.answers ?? {})) {
-        if (answer.kind === "single") {
-          lines.push(`  ${qid}: ${answer.label}${answer.other ? ` (Other: ${answer.text})` : ""}`);
-        } else if (answer.empty) {
-          lines.push(`  ${qid}: (empty)`);
-        } else {
-          const labels = answer.selections.map((s) => s.label).join(", ");
-          lines.push(`  ${qid}: [${labels}]`);
-        }
-      }
-
-      if (details.annotations) {
-        const hasAnnotations = Object.values(details.annotations).some(
-          (a) => a.questionNotes || a.optionNotes,
-        );
-        if (hasAnnotations) {
-          lines.push("  (annotations present — see details)");
-        }
-      }
-
       return new Text(lines.join("\n"), 0, 0);
     },
   });

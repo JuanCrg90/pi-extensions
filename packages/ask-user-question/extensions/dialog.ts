@@ -1,19 +1,16 @@
-import type {
-  AskUserQuestionResult,
-  DialogState,
-  Question,
-} from "./types.js";
-import { wrapOptionIndex } from "./state.js";
-import { buildResult } from "./result.js";
+import type { DialogState } from "./types.js";
 import {
-  renderQuestionSummary,
+  getPreferredFocusIndex,
+  wrapQuestionIndex,
+} from "./state.js";
+import {
   renderTabs,
   renderReviewTab,
   getMissingRequired,
   renderQuestion,
   renderPreviewPanel,
-  getRenderedOptions,
-  hasPreviewAvailable,
+  getFocusedOptionPreview,
+  questionHasAnyPreview,
 } from "./render.js";
 
 // ─── Dialog component ───────────────────────────────────────────────────────────
@@ -59,22 +56,28 @@ export function createDialogComponent(
     const qState = state.questionStates.get(questionId);
     if (qState) qState.answered = true;
 
-    // Store selected preview in annotations (single-select only)
     if (!q.multiSelect && qState) {
       const preview = getFocusedOptionPreview(q, qState);
       if (preview) {
-        if (!qState.annotations.selectedPreview) {
-          qState.annotations.selectedPreview = preview;
-        }
+        qState.annotations.selectedPreview = preview;
       }
     }
 
+    onEvent({ type: "answered", questionId });
+
     const allAnswered = state.questions.every(
-      (q) => state.questionStates.get(q.id)?.answered,
+      (question) => state.questionStates.get(question.id)?.answered,
     );
 
+    if (state.questions.length === 1) {
+      onDone();
+      return;
+    }
+
     if (allAnswered) {
-      onEvent({ type: "answered", questionId });
+      state.inReviewMode = true;
+      state.reviewPickerIndex = 0;
+      onEvent({ type: "review_enter" });
       return;
     }
 
@@ -82,6 +85,16 @@ export function createDialogComponent(
       const qs = state.questionStates.get(state.questions[i].id);
       if (!qs?.answered) {
         state.currentIndex = i;
+        const nextQ = state.questions[i];
+        const nextState = state.questionStates.get(nextQ.id);
+        if (nextState) {
+          nextState.focusIndex = getPreferredFocusIndex(
+            nextQ.options.length + 1,
+            nextState.selectedOptionId,
+            nextState.multiSelections,
+            [...nextQ.options, { id: "__other__" }],
+          );
+        }
         break;
       }
     }
@@ -158,32 +171,26 @@ export function createDialogComponent(
       state.statusMessage = "";
       const isForward = char === "\t";
 
-      // In review mode: switch to first question (forward) or exit (backward)
       if (state.inReviewMode) {
         state.inReviewMode = false;
         state.currentIndex = 0;
         return;
       }
 
-      // Check if all answered — enter review mode
-      const allAnswered = state.questions.every(
-        (q) => state.questionStates.get(q.id)?.answered,
+      const nextIndex = wrapQuestionIndex(
+        state.currentIndex + (isForward ? 1 : -1),
+        state.questions.length,
       );
-      if (allAnswered) {
-        state.inReviewMode = true;
-        onEvent({ type: "review_enter" });
-        return;
-      }
-
-      // Normal: navigate unanswered questions
-      for (let i = isForward ? 0 : state.questions.length - 1;
-           isForward ? i < state.questions.length : i >= 0;
-           i += isForward ? 1 : -1) {
-        const qs = state.questionStates.get(state.questions[i].id);
-        if (!qs?.answered || i === state.currentIndex) {
-          state.currentIndex = i;
-          break;
-        }
+      state.currentIndex = nextIndex;
+      const nextQ = state.questions[nextIndex];
+      const nextState = state.questionStates.get(nextQ.id);
+      if (nextState) {
+        nextState.focusIndex = getPreferredFocusIndex(
+          nextQ.options.length + 1,
+          nextState.selectedOptionId,
+          nextState.multiSelections,
+          [...nextQ.options, { id: "__other__" }],
+        );
       }
       return;
     }
@@ -235,6 +242,13 @@ export function createDialogComponent(
     // Space — toggle multi-select
     if (char === " ") {
       if (currentQ.multiSelect && !qState.otherInputMode) {
+        if (qState.focusIndex >= currentQ.options.length) {
+          qState.otherInputMode = true;
+          state.statusMessage = "Enter Other... text (Enter to confirm, Esc to cancel)";
+          onEvent({ type: "other_input", questionId: currentQ.id });
+          return;
+        }
+
         const opt = currentQ.options[qState.focusIndex];
         if (qState.multiSelections.has(opt.id)) {
           qState.multiSelections.delete(opt.id);
@@ -246,7 +260,6 @@ export function createDialogComponent(
           questionId: currentQ.id,
           optionId: opt.id,
         });
-        // Clear empty-pending whenever user makes a selection
         qState.multiSelectEmptyPending = false;
         state.statusMessage = qState.multiSelections.size > 0
           ? "Selection updated"
@@ -268,18 +281,11 @@ export function createDialogComponent(
             state.statusMessage = `Missing: ${missing.join(", ")}`;
             return;
           }
-          const dialogResult = buildResult(
-            state.questions,
-            state.questionStates,
-            false,
-            state.metadata,
-          );
           onEvent({ type: "review_submit" });
-          onDone(dialogResult);
+          onDone();
           return;
         }
         onEvent({ type: "review_cancel" });
-        onDone(null);
         return;
       }
 
@@ -336,7 +342,9 @@ export function createDialogComponent(
       }
 
       // Regular confirmation
-      const focusedOpt = currentQ.options[qState.focusIndex];
+      const focusedOpt = qState.focusIndex >= currentQ.options.length
+        ? { id: "__other__" }
+        : currentQ.options[qState.focusIndex];
       if (currentQ.multiSelect) {
         // Multi-select: check if empty selection
         if (qState.multiSelections.size === 0) {
@@ -454,15 +462,14 @@ export function createDialogComponent(
       const currentQ = state.questions[state.currentIndex];
       const qState = state.questionStates.get(currentQ.id)!;
 
-      // Use preview panel if available and not in special input modes
-      const hasPreview =
+      const shouldShowPreview =
         !currentQ.multiSelect &&
         qState &&
-        hasPreviewAvailable(currentQ, qState) &&
+        questionHasAnyPreview(currentQ) &&
         qState.otherInputMode === false &&
         qState.noteInputMode === false;
 
-      if (hasPreview) {
+      if (shouldShowPreview) {
         lines.push(...renderPreviewPanel(state, state.currentIndex, terminalWidth));
       } else {
         lines.push(...renderQuestion(state, state.currentIndex));

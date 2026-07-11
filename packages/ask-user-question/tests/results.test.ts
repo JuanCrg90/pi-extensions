@@ -29,8 +29,11 @@ function makeState(overrides?: Partial<QuestionState>): QuestionState {
     selectedOptionId: undefined,
     otherText: "",
     otherInputMode: false,
+    noteInputMode: false,
+    noteText: "",
     multiSelectEmptyPending: false,
     annotations: {},
+    editingNoteOptionIndex: -1,
     answered: false,
     ...overrides,
   };
@@ -198,6 +201,13 @@ describe("buildResult", () => {
     assert.ok(result.annotations);
     assert.ok(result.annotations["q1"]);
     assert.strictEqual(result.annotations["q1"].questionNotes, "hello");
+  });
+
+  it("omits unanswered multi-select questions from answers", () => {
+    const q = makeQuestion({ multiSelect: true });
+    const states = new Map([["q1", makeState({ multiSelections: new Set(["opt1"]), answered: false })]]);
+    const result = buildResult([q], states, false);
+    assert.deepStrictEqual(result.answers, {});
   });
 
   it("includes metadata when provided", () => {

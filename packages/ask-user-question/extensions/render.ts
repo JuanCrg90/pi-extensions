@@ -108,8 +108,10 @@ export function renderReviewTab(state: DialogState): string[] {
   lines.push(`  ${cancelLabel}`);
   lines.push("");
   lines.push("  ↑/↓ j/k  Move picker");
+  lines.push("  ←/→  Switch submit/cancel");
   lines.push("  Enter  Confirm selection");
   lines.push("  Esc  Back to questions");
+  lines.push("  Ctrl-C  Dismiss immediately");
 
   return lines;
 }
@@ -146,7 +148,6 @@ export function renderQuestion(
   lines.push(state.statusMessage || `❯ ${q.header}: ${q.question}`);
 
   if (qState.noteInputMode) {
-    // Note editor
     const noteKey =
       qState.editingNoteOptionIndex === q.options.length
         ? "$other"
@@ -156,7 +157,6 @@ export function renderQuestion(
     lines.push(`  Note for "${noteLabel}"`);
     lines.push("");
     lines.push(`  ┌─────────────────────────────────────┐`);
-    // Split note text into lines for multi-line support
     const maxLineLen = 36;
     const text = qState.noteText;
     for (let i = 0; i < text.length; i += maxLineLen) {
@@ -166,11 +166,25 @@ export function renderQuestion(
     lines.push(`  │${" ".repeat(maxLineLen)}│`);
     lines.push(`  └─────────────────────────────────────┘`);
     lines.push("");
-    lines.push(
-      `  [Enter: save]  [Esc: cancel]  [Backspace: delete]`,
-    );
+    lines.push("  [Type text]  [Enter: save]  [Esc: cancel]  [Backspace: delete]");
+    lines.push("  [Ctrl-C: dismiss now]");
+  } else if (qState.otherInputMode) {
+    lines.push("");
+    lines.push("  Other... answer");
+    lines.push("");
+    lines.push("  ┌─────────────────────────────────────┐");
+    const maxLineLen = 36;
+    const text = qState.otherText;
+    for (let i = 0; i < text.length; i += maxLineLen) {
+      const chunk = text.slice(i, i + maxLineLen);
+      lines.push(`  │ ${chunk}${" ".repeat(maxLineLen - chunk.length)} │`);
+    }
+    lines.push(`  │${" ".repeat(maxLineLen)}│`);
+    lines.push("  └─────────────────────────────────────┘");
+    lines.push("");
+    lines.push("  [Type text]  [Enter: save]  [Esc: cancel]  [Backspace: delete]");
+    lines.push("  [Ctrl-C: dismiss now]");
   } else {
-    // Options (auto-inject "Other..." at the end)
     const allOptions = getRenderedOptions(q, qState);
     for (let i = 0; i < allOptions.length; i++) {
       const opt = allOptions[i];
@@ -181,9 +195,7 @@ export function renderQuestion(
           : qState.selectedOptionId === opt.id;
 
       let indicator = "  ";
-      if (qState.otherInputMode) {
-        indicator = `  "${qState.otherText}"`;
-      } else if (isSelected) {
+      if (isSelected) {
         indicator = q.multiSelect ? "(x)" : "(•)";
       }
 
@@ -192,7 +204,6 @@ export function renderQuestion(
         : `  ${opt.label}`;
 
       lines.push(`${indicator} ${label}`);
-      // Only show descriptions for built-in options
       if (!opt.isOther) {
         const realOpt = q.options.find((o) => o.id === opt.id);
         if (realOpt?.description) {
@@ -201,10 +212,12 @@ export function renderQuestion(
       }
     }
 
-    // Navigation hint
     lines.push(
-      `  [Enter: confirm]  [o: Other...]  [n: note]  [?: help]  [Esc: dismiss]`,
+      q.multiSelect
+        ? "  [↑/↓: move]  [Space: toggle]  [Enter: confirm]  [o: Other...]  [n: note]  [?: help]"
+        : "  [↑/↓: move]  [Enter: confirm]  [o: Other...]  [n: note]  [?: help]", 
     );
+    lines.push("  [Tab/Shift-Tab: switch]  [Esc Esc: dismiss]  [Ctrl-C: dismiss now]");
   }
 
   // Review tab hint for multi-question flows
@@ -220,10 +233,11 @@ export function renderQuestion(
     lines.push("Tab/Shift+Tab  Next/prev question");
     lines.push("←/→  Navigate tabs (multi-question)");
     lines.push("Space  Toggle selection (multi-select)");
-    lines.push("Enter  Confirm answer");
+    lines.push("Enter  Confirm answer / save input");
     lines.push("o  Enter Other... text");
     lines.push("n  Add/edit note for focused option");
-    lines.push("?  Toggle help");
+    lines.push("?  Open help");
+    lines.push("Any key  Close help");
     lines.push("Esc  Warning → dismiss on second press");
     lines.push("Ctrl-C  Dismiss immediately");
     lines.push("━━━━━━━━");
@@ -248,7 +262,7 @@ export function getMissingRequired(
   const missing: string[] = [];
   for (const q of questions) {
     const qs = questionStates.get(q.id);
-    if (!qs?.answered) {
+    if (q.required !== false && !qs?.answered) {
       missing.push(q.header);
     }
   }
@@ -260,11 +274,15 @@ export function getMissingRequired(
 /**
  * Check whether a single-select question has any visible option with a preview.
  */
+export function questionHasAnyPreview(question: Question): boolean {
+  return !question.multiSelect && question.options.some((o) => !!o.preview?.length);
+}
+
 export function hasPreviewAvailable(
   question: Question,
   qState: DialogState["questionStates"] extends Map<string, infer S> ? S : never,
 ): boolean {
-  if (question.multiSelect) return false;
+  if (!questionHasAnyPreview(question)) return false;
   const focusedIdx = qState.focusIndex;
   const allOptions = getRenderedOptions(question, qState);
   const focusedOpt = allOptions[focusedIdx];
@@ -301,149 +319,87 @@ export function renderPreviewPanel(
 ): string[] {
   const q = state.questions[questionIdx];
   const qState = state.questionStates.get(q.id)!;
-  const lines: string[] = [];
 
-  // Header
+  if (qState.noteInputMode || qState.otherInputMode || !questionHasAnyPreview(q)) {
+    return renderQuestion(state, questionIdx);
+  }
+
+  const previewText = getFocusedOptionPreview(q, qState) ?? "(no preview)";
+  const wrapWidth = Math.max(10, Math.min(terminalWidth - 4, 40));
+  const previewBody: string[] = [];
+  let remaining = previewText;
+  while (remaining.length > 0) {
+    let breakAt = remaining.indexOf(" ", wrapWidth);
+    if (breakAt === -1 || breakAt < wrapWidth - 10) {
+      breakAt = Math.min(remaining.length, wrapWidth);
+    }
+    if (breakAt === 0) breakAt = wrapWidth;
+    const chunk = remaining.slice(0, breakAt).trim();
+    previewBody.push(`  ${chunk}`);
+    remaining = remaining.slice(breakAt).trim();
+  }
+  if (previewBody.length === 0) {
+    previewBody.push("  (no preview)");
+  }
+
+  if (terminalWidth <= 32) {
+    const lines = renderQuestion(state, questionIdx);
+    lines.push("");
+    lines.push("  ── Preview ──");
+    lines.push(...previewBody);
+    return lines;
+  }
+
+  const lines: string[] = [];
   lines.push(state.statusMessage || `❯ ${q.header}: ${q.question}`);
 
-  const isNoteMode = qState.noteInputMode;
-  const isOtherMode = qState.otherInputMode;
-
-  if (isNoteMode) {
-    return renderQuestion(state, questionIdx);
-  }
-
-  if (isOtherMode) {
-    return renderQuestion(state, questionIdx);
-  }
-
-  // Check if preview is available for focused option
-  const hasPreview = hasPreviewAvailable(q, qState);
-  const previewText = getFocusedOptionPreview(q, qState);
-
-  // If no preview available anywhere, render normally
-  const hasAnyPreview = q.options.some((o) => o.preview && o.preview.length > 0);
-  if (!hasAnyPreview) {
-    return renderQuestion(state, questionIdx);
-  }
-
-  // Decide layout mode
-  const useSideBySide = terminalWidth > 32;
-
-  if (useSideBySide) {
-    // Side-by-side layout
-    const leftWidth = Math.floor(terminalWidth * 0.45);
-    const rightWidth = terminalWidth - leftWidth - 2;
-
-    // Render options column (left)
-    const allOptions = getRenderedOptions(q, qState);
-    const optionLines: string[] = [];
-    for (let i = 0; i < allOptions.length; i++) {
-      const opt = allOptions[i];
-      const isFocused = i === qState.focusIndex;
-      const isSelected =
-        q.multiSelect
-          ? qState.multiSelections.has(opt.id)
-          : qState.selectedOptionId === opt.id;
-
-      let indicator = "  ";
-      if (isSelected) {
-        indicator = q.multiSelect ? "(x)" : "(•)";
-      }
-
-      const label = isFocused
-        ? `▸ ${opt.label}`
-        : `  ${opt.label}`;
-
-      optionLines.push(`${indicator} ${label}`);
+  const leftWidth = Math.floor(terminalWidth * 0.45);
+  const allOptions = getRenderedOptions(q, qState);
+  const optionLines: string[] = [];
+  for (let i = 0; i < allOptions.length; i++) {
+    const opt = allOptions[i];
+    const isFocused = i === qState.focusIndex;
+    const isSelected = qState.selectedOptionId === opt.id;
+    const indicator = isSelected ? "(•)" : "  ";
+    const label = isFocused ? `▸ ${opt.label}` : `  ${opt.label}`;
+    optionLines.push(`${indicator} ${label}`);
+    if (!opt.isOther) {
       const realOpt = q.options.find((o) => o.id === opt.id);
-      if (!opt.isOther && realOpt?.description) {
+      if (realOpt?.description) {
         optionLines.push(`    ${realOpt.description}`);
       }
     }
-
-    // Render preview column (right)
-    const previewLines: string[] = [];
-    if (hasPreview && previewText) {
-      previewLines.push("  ── Preview ──");
-      // Word-wrap preview text
-      const text = previewText;
-      const lineLen = Math.min(rightWidth - 4, 40);
-      let remaining = text;
-      while (remaining.length > 0) {
-        let breakAt = remaining.indexOf(" ", lineLen);
-        if (breakAt === -1 || breakAt < lineLen - 10) {
-          breakAt = Math.min(remaining.length, lineLen);
-        }
-        if (breakAt === 0) breakAt = lineLen;
-        const chunk = remaining.slice(0, breakAt).trim();
-        previewLines.push(`  ${chunk}`);
-        remaining = remaining.slice(breakAt).trim();
-      }
-    } else {
-      previewLines.push("  ── Preview ──");
-      previewLines.push("  (no preview)");
-    }
-
-    // Merge side-by-side
-    const maxLines = Math.max(optionLines.length, previewLines.length);
-    for (let i = 0; i < maxLines; i++) {
-      const left = optionLines[i] || "";
-      const right = previewLines[i] || "";
-      lines.push(`${left.padEnd(leftWidth)} ${right}`);
-    }
-
-    // Controls line
-    lines.push(
-      `  [Enter: confirm]  [o: Other...]  [n: note]  [?: help]  [Esc: dismiss]`,
-    );
-  } else {
-    // Single-column with preview below
-    lines.push(...renderQuestion(state, questionIdx));
-    if (hasPreview && previewText) {
-      lines.push("");
-      lines.push("  ── Preview ──");
-      const text = previewText;
-      const lineLen = terminalWidth - 4;
-      let remaining = text;
-      while (remaining.length > 0) {
-        let breakAt = remaining.indexOf(" ", lineLen);
-        if (breakAt === -1 || breakAt < lineLen - 10) {
-          breakAt = Math.min(remaining.length, lineLen);
-        }
-        if (breakAt === 0) breakAt = lineLen;
-        const chunk = remaining.slice(0, breakAt).trim();
-        lines.push(`  ${chunk}`);
-        remaining = remaining.slice(breakAt).trim();
-      }
-    }
   }
 
-  // Review tab hint
-  if (state.inReviewMode) {
-    lines.push("  Review mode — Enter on submit to finish");
+  const previewLines = ["  ── Preview ──", ...previewBody];
+  const maxLines = Math.max(optionLines.length, previewLines.length);
+  for (let i = 0; i < maxLines; i++) {
+    const left = optionLines[i] || "";
+    const right = previewLines[i] || "";
+    lines.push(`${left.padEnd(leftWidth)} ${right}`);
   }
 
-  // Escape warning
-  if (state.pendingEscape) {
-    lines.push("  ⚠ Press Esc again to dismiss to chat");
-  }
+  lines.push("  [↑/↓: move]  [Enter: confirm]  [o: Other...]  [n: note]  [?: help]");
+  lines.push("  [Tab/Shift-Tab: switch]  [Esc Esc: dismiss]  [Ctrl-C: dismiss now]");
 
-  // Help overlay
   if (state.showHelp) {
     lines.push("");
     lines.push("━━━ Help ━━━");
     lines.push("↑/↓ j/k  Move focus");
     lines.push("Tab/Shift+Tab  Next/prev question");
     lines.push("←/→  Navigate tabs (multi-question)");
-    lines.push("Space  Toggle selection (multi-select)");
-    lines.push("Enter  Confirm answer");
+    lines.push("Enter  Confirm answer / save input");
     lines.push("o  Enter Other... text");
     lines.push("n  Add/edit note for focused option");
-    lines.push("?  Toggle help");
+    lines.push("?  Open help");
+    lines.push("Any key  Close help");
     lines.push("Esc  Warning → dismiss on second press");
     lines.push("Ctrl-C  Dismiss immediately");
     lines.push("━━━━━━━━");
+  }
+
+  if (state.pendingEscape) {
+    lines.push("  ⚠ Press Esc again to dismiss to chat");
   }
 
   return lines;

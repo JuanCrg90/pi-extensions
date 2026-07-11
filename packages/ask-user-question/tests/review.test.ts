@@ -132,6 +132,15 @@ describe("J3 — Missing required questions block submit", () => {
     assert.deepStrictEqual(missing, []);
   });
 
+  it("ignores unanswered optional questions", () => {
+    const q1 = makeQuestion({ id: "q1", header: "Q1", required: false });
+    const qStates = new Map([
+      ["q1", { answered: false } as QuestionState],
+    ]);
+    const missing = getMissingRequired([q1], qStates);
+    assert.deepStrictEqual(missing, []);
+  });
+
   it("renderReviewTab shows missing warnings", () => {
     const q1 = makeQuestion({ id: "q1", header: "Pick" });
     const q2 = makeQuestion({ id: "q2", header: "Choose" });

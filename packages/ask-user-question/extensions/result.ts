@@ -142,12 +142,14 @@ export function buildResult(
 
     // Serialize answers keyed by question.id
     if (q.multiSelect) {
-      const answer = serializeMultiAnswer(
-        q,
-        state,
-        state.multiSelectEmptyPending,
-      );
-      answers[q.id] = answer;
+      if (state.answered) {
+        const answer = serializeMultiAnswer(
+          q,
+          state,
+          state.multiSelectEmptyPending,
+        );
+        answers[q.id] = answer;
+      }
     } else {
       const answer = serializeSingleAnswer(q, state);
       if (answer) {

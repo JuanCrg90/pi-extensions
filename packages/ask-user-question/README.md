@@ -1,6 +1,6 @@
-# AskUserQuestion Extension
+# AskUserQuestion
 
-Interactive question tool for Pi — pause the agent flow, ask structured questions in the TUI, collect answers with stable ID-based results.
+Interactive Pi tool. Pause agent flow. Ask structured questions in TUI. Return stable ID-keyed answers.
 
 ## Install
 
@@ -8,26 +8,24 @@ Interactive question tool for Pi — pause the agent flow, ask structured questi
 pi install npm:@juancrg90/ask-user-question
 ```
 
-## Tool: `AskUserQuestion`
+## Tool
 
-Let the agent pause execution and ask the user one or more structured questions in the TUI.
+`AskUserQuestion`
 
-### When to use
+Use when:
+- user preference changes outcome
+- multiple valid paths
+- ambiguity not inferable from repo/context
+- batching related choices better than serial follow-ups
 
-- User preference materially changes the outcome
-- Multiple valid implementation paths exist
-- Ambiguity cannot be resolved from context
-- Batching related decisions is more efficient than serial follow-ups
+Do not use when:
+- asking permission for risky actions
+- plan approval already covered elsewhere
+- answer inferable with high confidence
 
-### When not to use
+## Input
 
-- Asking for permission on risky actions
-- Asking for plan approval already covered by another flow
-- Answer can be inferred confidently from context
-
-### Parameters
-
-```typescript
+```ts
 interface AskUserQuestionParams {
   questions: Question[];
   metadata?: {
@@ -38,86 +36,114 @@ interface AskUserQuestionParams {
 }
 
 interface Question {
-  id: string;           // Required, unique within call
-  question: string;     // Must end with '?'
-  header: string;       // Max 12 chars
+  id: string;
+  question: string;   // must end with ?
+  header: string;     // max 12 chars
   multiSelect?: boolean;
-  options: Option[];    // 2–4 options per question
-  required?: boolean;   // Default: true
+  required?: boolean; // default true
+  options: Option[];  // 2–4 options
 }
 
 interface Option {
-  id: string;           // Required, unique within question
+  id: string;
   label: string;
   description: string;
-  preview?: string;     // Only on single-select questions
+  preview?: string;   // single-select only
   recommended?: boolean;
 }
 ```
 
-### Input rules
+Rules:
+- 1–8 questions
+- unique `question.id`
+- unique `option.id` within each question
+- explicit `Other` forbidden; tool auto-adds `Other...`
+- preview allowed only on single-select
 
-| Rule | Detail |
-|------|--------|
-| Questions | 1–8 per call |
-| Options | 2–4 per question |
-| IDs | Required and unique (`question.id`, `option.id`) |
-| Question text | Must end with `?` |
-| Header | Max 12 characters |
-| Other | Auto-added by the tool; never include it in input |
-| Preview | Only on single-select questions |
+## Output
 
-### Output
-
-```typescript
+```ts
 interface AskUserQuestionResult {
   cancelled: boolean;
-  answers?: Record<string, AnswerValue>;     // keyed by question.id
-  annotations?: Record<string, QuestionAnnotations>; // keyed by question.id
+  answers?: Record<string, AnswerValue>;      // keyed by question.id
+  annotations?: Record<string, QuestionAnnotations>;
   metadata?: { source?: string; flowId?: string };
 }
-```
 
-Single-select answer:
+type AnswerValue =
+  | {
+      kind: "single";
+      optionId?: string;
+      label: string;
+      other?: boolean;
+      text?: string;
+    }
+  | {
+      kind: "multi";
+      selections: Array<{
+        optionId?: string;
+        label: string;
+        other?: boolean;
+        text?: string;
+      }>;
+      empty: boolean;
+    };
 
-```typescript
-{
-  kind: "single",
-  optionId?: string,
-  label: string,
-  other?: boolean,
-  text?: string
+interface QuestionAnnotations {
+  questionNotes?: string;            // reserved in schema; no dedicated editor yet
+  optionNotes?: Record<string, string>; // option.id or "$other"
+  selectedPreview?: string;
 }
 ```
 
-Multi-select answer:
+## Runtime behavior
 
-```typescript
-{
-  kind: "multi",
-  selections: Array<{ optionId?: string; label: string; other?: boolean; text?: string }>,
-  empty: boolean
-}
-```
+- one-question flow submits immediately after answer
+- multi-question flow enters review/submit tab after all answered
+- dismiss path returns `cancelled: true` and `terminate: true`
+- working indicator hidden while modal open; always restored
+- supports external abort via `_signal`
+- emits low-noise `_onUpdate` milestones:
+  - `dialog_opened`
+  - `question_answered`
+  - `review_ready`
+  - `submitted`
+  - `dismissed`
 
-### Keybindings
+## Keybindings
 
-| Key | Action |
-|-----|--------|
-| `↑/↓` or `j/k` | Move focus between options |
-| `Tab` / `Shift+Tab` | Move to next/previous question |
-| `Space` | Toggle focused option (multi-select) |
-| `Enter` | Confirm current question selection |
-| `o` | Open "Other..." text input |
-| `n` | Add/edit notes for focused option |
-| `?` | Open help overlay |
-| `Esc` | First press: show warning. Second press: dismiss |
-| `Ctrl-C` | Dismiss immediately |
+Normal:
+- `↑/↓` or `j/k` — move focus
+- `Tab` / `Shift+Tab` — switch questions
+- `←/→` — move review picker
+- `Space` — toggle focused option in multi-select
+- `Enter` — confirm / submit current action
+- `o` — open `Other...` input
+- `n` — edit note for focused option
+- `?` — open help
+- `Esc`, `Esc` — dismiss to chat
+- `Ctrl-C` — dismiss immediately
 
-### Example
+Help:
+- any key closes help
 
-```typescript
-// Agent calls:
+Other... / note input:
+- type plain text
+- `Enter` save
+- `Esc` cancel
+- `Backspace` delete
+
+## Preview
+
+- single-select only
+- plain text only
+- wide terminals: side-by-side option list + preview
+- narrow terminals: preview stacked below list
+- if focused option has no preview, explicit `(no preview)` shown
+
+## Example input
+
+```ts
 AskUserQuestion({
   questions: [
     {
@@ -125,16 +151,25 @@ AskUserQuestion({
       question: "Which frontend framework do you prefer?",
       header: "Framework",
       options: [
-        { id: "react", label: "React", description: "Component-based UI library", recommended: true },
-        { id: "vue", label: "Vue", description: "Progressive JavaScript framework" },
-        { id: "svelte", label: "Svelte", description: "Compiler-based approach" }
-      ]
-    }
-  ]
-})
+        {
+          id: "react",
+          label: "React",
+          description: "Component-based UI library",
+          preview: "Best if you want broad ecosystem support.",
+        },
+        {
+          id: "vue",
+          label: "Vue",
+          description: "Progressive framework",
+          preview: "Good default if you want gentle adoption.",
+        },
+      ],
+    },
+  ],
+});
 ```
 
-### Example result
+## Example result
 
 ```json
 {
@@ -145,10 +180,19 @@ AskUserQuestion({
       "optionId": "react",
       "label": "React"
     }
+  },
+  "annotations": {
+    "framework": {
+      "selectedPreview": "Best if you want broad ecosystem support."
+    }
   }
 }
 ```
 
+## Security
+
+Do not pass secrets in question text, descriptions, previews, or notes.
+
 ## License
 
-MIT © JuanCrg90
+MIT

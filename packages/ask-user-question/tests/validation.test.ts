@@ -293,4 +293,31 @@ describe("validateParams", () => {
     const errors = run(params);
     assert.ok(errors.some((e) => e.includes("non-empty 'id'")));
   });
+
+  it("rejects reserved internal ids", () => {
+    const params = makeValidPayload();
+    params.questions[0].options[0].id = "__other__";
+    assert.ok(run(params).some((e) => e.includes("reserved")));
+  });
+
+  it("rejects Other... variants", () => {
+    const params = makeValidPayload();
+    params.questions[0].options[0].label = "Other...";
+    assert.ok(run(params).some((e) => e.includes("auto-adds")));
+  });
+
+  it("rejects blank labels and descriptions", () => {
+    const params = makeValidPayload();
+    params.questions[0].options[0].label = " ";
+    params.questions[0].options[1].description = " ";
+    const errors = run(params);
+    assert.ok(errors.some((e) => e.includes("non-empty label")));
+    assert.ok(errors.some((e) => e.includes("non-empty description")));
+  });
+
+  it("allows at most one recommended option", () => {
+    const params = makeValidPayload();
+    params.questions[0].options.forEach((option) => { option.recommended = true; });
+    assert.ok(run(params).some((e) => e.includes("at most one")));
+  });
 });

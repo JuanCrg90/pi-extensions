@@ -94,6 +94,7 @@ export function initQuestionState(
     selectedOptionId: undefined,
     editingNoteOptionIndex: -1,
     otherText: "",
+    otherDraft: "",
     otherInputMode: false,
     noteInputMode: false,
     noteText: "",

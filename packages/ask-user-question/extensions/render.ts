@@ -41,7 +41,8 @@ export function renderQuestionSummary(
  */
 export function renderTabs(
   state: DialogState,
-  pickerIndex: number,
+  pickerIndex = state.reviewPickerIndex,
+  width = 80,
 ): string[] {
   const tabs: string[] = [];
 
@@ -68,7 +69,19 @@ export function renderTabs(
     tabs.push(`${pickerIndex === 0 ? "(•)" : "( )"} submit  ${pickerIndex === 1 ? "(•)" : "( )"} cancel`);
   }
 
-  return tabs;
+  const lines: string[] = [];
+  let line = "";
+  for (const tab of tabs) {
+    const next = line ? `${line}  ${tab}` : tab;
+    if (line && next.length > Math.max(1, width)) {
+      lines.push(line);
+      line = tab;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
 }
 
 /**
@@ -126,7 +139,7 @@ export function getRenderedOptions(
 ): Array<{ id: string; label: string; isOther: boolean }> {
   const opts = question.options.map((o) => ({
     id: o.id,
-    label: o.label,
+    label: "recommended" in o && o.recommended ? `${o.label} (recommended)` : o.label,
     isOther: false,
   }));
   opts.push({ id: "__other__", label: "Other...", isOther: true });
@@ -148,11 +161,12 @@ export function renderQuestion(
   lines.push(state.statusMessage || `❯ ${q.header}: ${q.question}`);
 
   if (qState.noteInputMode) {
-    const noteKey =
-      qState.editingNoteOptionIndex === q.options.length
+    const noteKey = qState.editingNoteOptionIndex === -2
+      ? "$question"
+      : qState.editingNoteOptionIndex === q.options.length
         ? "$other"
         : q.options[qState.editingNoteOptionIndex]?.id || "";
-    const noteLabel = noteKey === "$other" ? "Other..." : noteKey;
+    const noteLabel = noteKey === "$question" ? q.header : noteKey === "$other" ? "Other..." : noteKey;
     lines.push("");
     lines.push(`  Note for "${noteLabel}"`);
     lines.push("");
@@ -174,7 +188,7 @@ export function renderQuestion(
     lines.push("");
     lines.push("  ┌─────────────────────────────────────┐");
     const maxLineLen = 36;
-    const text = qState.otherText;
+    const text = qState.otherDraft ?? "";
     for (let i = 0; i < text.length; i += maxLineLen) {
       const chunk = text.slice(i, i + maxLineLen);
       lines.push(`  │ ${chunk}${" ".repeat(maxLineLen - chunk.length)} │`);
@@ -214,8 +228,8 @@ export function renderQuestion(
 
     lines.push(
       q.multiSelect
-        ? "  [↑/↓: move]  [Space: toggle]  [Enter: confirm]  [o: Other...]  [n: note]  [?: help]"
-        : "  [↑/↓: move]  [Enter: confirm]  [o: Other...]  [n: note]  [?: help]", 
+        ? "  [↑/↓: move] [Space: toggle] [Enter: confirm] [o: Other] [n/N: option/question note] [?: help]"
+        : "  [↑/↓: move] [Enter: confirm] [o: Other] [n/N: option/question note] [?: help]",
     );
     lines.push("  [Tab/Shift-Tab: switch]  [Esc Esc: dismiss]  [Ctrl-C: dismiss now]");
   }
@@ -235,7 +249,7 @@ export function renderQuestion(
     lines.push("Space  Toggle selection (multi-select)");
     lines.push("Enter  Confirm answer / save input");
     lines.push("o  Enter Other... text");
-    lines.push("n  Add/edit note for focused option");
+    lines.push("n / N  Edit focused-option / question note");
     lines.push("?  Open help");
     lines.push("Any key  Close help");
     lines.push("Esc  Warning → dismiss on second press");
@@ -390,7 +404,7 @@ export function renderPreviewPanel(
     lines.push("←/→  Navigate tabs (multi-question)");
     lines.push("Enter  Confirm answer / save input");
     lines.push("o  Enter Other... text");
-    lines.push("n  Add/edit note for focused option");
+    lines.push("n / N  Edit focused-option / question note");
     lines.push("?  Open help");
     lines.push("Any key  Close help");
     lines.push("Esc  Warning → dismiss on second press");

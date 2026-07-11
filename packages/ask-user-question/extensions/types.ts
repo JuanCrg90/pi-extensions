@@ -94,8 +94,10 @@ export interface QuestionState {
   multiSelections: Set<string>;
   /** For single-select: the currently selected option id (or undefined). */
   selectedOptionId?: string;
-  /** Custom "Other..." text entered by the user. */
+  /** Saved custom "Other..." answer. */
   otherText: string;
+  /** Draft custom text, committed only when Enter is pressed. */
+  otherDraft?: string;
   /** Whether the user is in "Other..." text-input mode. */
   otherInputMode: boolean;
   /** Whether the user is in note-edit mode. */
@@ -105,9 +107,8 @@ export interface QuestionState {
   /** For multi-select: whether user confirmed empty selection. */
   multiSelectEmptyPending: boolean;
   /** Annotations for this question. */
-  /** Annotations for this question. */
   annotations: QuestionAnnotations;
-  /** Which option's note is being edited (by index). -1 = none. */
+  /** Which note is edited: option index, -1 none, -2 question note. */
   editingNoteOptionIndex: number;
   /** Whether this question has been answered (Enter pressed). */
   answered: boolean;

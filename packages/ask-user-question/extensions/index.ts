@@ -117,7 +117,7 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
       }
 
       // 2. Check for interactive terminal
-      if (ctx.mode !== "tui" && ctx.mode !== "rpc") {
+      if (ctx.mode !== "tui") {
         return {
           content: [{ type: "text", text: "AskUserQuestion requires an interactive terminal. Use pi in TUI mode." }],
           details: {},
@@ -125,9 +125,7 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
       }
 
       // 3. Hide working indicator
-      if (ctx.mode === "tui" && ctx.hasUI) {
-        ctx.ui.setWorkingVisible(false);
-      }
+      if (ctx.hasUI) ctx.ui.setWorkingVisible(false);
 
       try {
         // 4. Build dialog state
@@ -162,7 +160,7 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
           details: { milestone: "dialog_opened", questionCount: params.questions.length },
         });
 
-        const customHandle = ctx.ui.custom<AskUserQuestionResult | null>(
+        const dialogPromise = ctx.ui.custom<AskUserQuestionResult | null>(
           (tui, _theme, _kb, done) => {
             finishDialog = done;
             return createDialogComponent(
@@ -222,7 +220,7 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
             );
           },
           { overlay: true },
-        ) as Promise<AskUserQuestionResult | null> & { close?: () => void };
+        );
 
         const abortHandler = () => {
           dialogDismissed = true;
@@ -231,7 +229,6 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
             details: { milestone: "dismissed", reason: "signal_abort" },
           });
           finishDialog?.(null);
-          customHandle.close?.();
         };
 
         if (_signal?.aborted) {
@@ -240,8 +237,12 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
           _signal?.addEventListener("abort", abortHandler, { once: true });
         }
 
-        const dialogAnswer = await customHandle;
-        _signal?.removeEventListener("abort", abortHandler);
+        let dialogAnswer: AskUserQuestionResult | null;
+        try {
+          dialogAnswer = await dialogPromise;
+        } finally {
+          _signal?.removeEventListener("abort", abortHandler);
+        }
 
         const finalResult = dialogDismissed || dialogAnswer === null
           ? ({ cancelled: true, metadata } as AskUserQuestionResult)
@@ -260,9 +261,7 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
           terminate: finalResult.cancelled ? true : undefined,
         };
       } finally {
-        if (ctx.mode === "tui" && ctx.hasUI) {
-          ctx.ui.setWorkingVisible(true);
-        }
+        if (ctx.hasUI) ctx.ui.setWorkingVisible(true);
       }
     },
 

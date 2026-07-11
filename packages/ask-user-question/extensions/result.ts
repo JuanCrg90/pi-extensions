@@ -58,15 +58,10 @@ export function serializeMultiAnswer(
 ): AnswerValue {
   const selections: AnswerValue["selections"] = [];
 
-  // Add built-in selections in focus order
-  for (const optId of state.multiSelections) {
-    if (optId === "__other__") continue; // handled below
-    const opt = question.options.find((o) => o.id === optId);
-    if (opt) {
-      selections.push({
-        optionId: opt.id,
-        label: opt.label,
-      });
+  // Add built-in selections in declared option order for deterministic output.
+  for (const opt of question.options) {
+    if (state.multiSelections.has(opt.id)) {
+      selections.push({ optionId: opt.id, label: opt.label });
     }
   }
 
@@ -130,7 +125,7 @@ export function buildResult(
   metadata?: { source?: string; flowId?: string },
 ): AskUserQuestionResult {
   if (cancelled) {
-    return { cancelled: true, metadata };
+    return metadata ? { cancelled: true, metadata } : { cancelled: true };
   }
 
   const answers: Record<string, AnswerValue> = {};
@@ -157,9 +152,20 @@ export function buildResult(
       }
     }
 
-    // Serialize annotations keyed by question.id
-    annotations[q.id] = assembleAnnotations(q, state);
+    const questionAnnotations = assembleAnnotations(q, state);
+    if (
+      questionAnnotations.questionNotes ||
+      questionAnnotations.selectedPreview ||
+      (questionAnnotations.optionNotes && Object.keys(questionAnnotations.optionNotes).length > 0)
+    ) {
+      annotations[q.id] = questionAnnotations;
+    }
   }
 
-  return { cancelled: false, answers, annotations, metadata };
+  return {
+    cancelled: false,
+    answers,
+    ...(Object.keys(annotations).length > 0 ? { annotations } : {}),
+    ...(metadata ? { metadata } : {}),
+  };
 }

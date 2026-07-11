@@ -90,7 +90,7 @@ type AnswerValue =
     };
 
 interface QuestionAnnotations {
-  questionNotes?: string;            // reserved in schema; no dedicated editor yet
+  questionNotes?: string;
   optionNotes?: Record<string, string>; // option.id or "$other"
   selectedPreview?: string;
 }
@@ -99,7 +99,9 @@ interface QuestionAnnotations {
 ## Runtime behavior
 
 - one-question flow submits immediately after answer
-- multi-question flow enters review/submit tab after all answered
+- multi-question flow enters review once all required questions are answered
+- optional questions may remain unanswered
+- multi-select `Space` immediately updates answered state; empty selection needs two `Enter` presses
 - dismiss path returns `cancelled: true` and `terminate: true`
 - working indicator hidden while modal open; always restored
 - supports external abort via `_signal`
@@ -115,11 +117,12 @@ interface QuestionAnnotations {
 Normal:
 - `↑/↓` or `j/k` — move focus
 - `Tab` / `Shift+Tab` — switch questions
-- `←/→` — move review picker
+- `←/→` — switch questions; move picker during review
 - `Space` — toggle focused option in multi-select
 - `Enter` — confirm / submit current action
 - `o` — open `Other...` input
 - `n` — edit note for focused option
+- `N` — edit note for the current question
 - `?` — open help
 - `Esc`, `Esc` — dismiss to chat
 - `Ctrl-C` — dismiss immediately

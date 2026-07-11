@@ -272,16 +272,14 @@ describe("K4 — Note storage and editing", () => {
     assert.strictEqual(result.annotations["q1"]?.optionNotes?.["$other"], "Other option note");
   });
 
-  it("buildResult omits annotations when no notes set", () => {
+  it("buildResult omits empty annotations", () => {
     const q = makeQuestion();
     const qs = makeBaseState();
     qs.selectedOptionId = "opt1";
     qs.answered = true;
 
     const result = buildResult([q], new Map([["q1", qs]]), false);
-    assert.ok(result.annotations);
-    // Empty annotations object is still included
-    assert.deepStrictEqual(result.annotations["q1"], {});
+    assert.strictEqual(result.annotations, undefined);
   });
 
   it("getRenderedOptions returns Other... with isOther flag", () => {

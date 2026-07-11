@@ -91,12 +91,14 @@ function makeCtx(script?: (component: any) => void, mode: string = "tui") {
 }
 
 describe("runtime", () => {
-  it("requires interactive terminal", async () => {
+  it("requires TUI mode", async () => {
     const tool = getTool();
-    const { ctx } = makeCtx(undefined, "cli");
-    const result = await tool.execute("id", makeParams(), undefined, undefined, ctx);
-    assert.match(result.content[0]?.text ?? "", /interactive terminal/i);
-    assert.deepStrictEqual(result.details, {});
+    for (const mode of ["cli", "rpc"]) {
+      const { ctx } = makeCtx(undefined, mode);
+      const result = await tool.execute("id", makeParams(), undefined, undefined, ctx);
+      assert.match(result.content[0]?.text ?? "", /interactive terminal/i);
+      assert.deepStrictEqual(result.details, {});
+    }
   });
 
   it("restores working indicator on single-select happy path", async () => {
@@ -227,9 +229,67 @@ describe("dialog component regressions", () => {
 
     const events: string[] = [];
     const component = createDialogComponent(state, () => {}, (ev) => events.push(ev.type));
-    component.handleInput(" ", undefined);
+    component.handleInput(" ");
 
     assert.strictEqual(qState.otherInputMode, true);
     assert.ok(events.includes("other_input"));
+  });
+
+  it("handles real arrow escape sequences", () => {
+    const state = makeDialogState();
+    const component = createDialogComponent(state, () => {}, () => {});
+    component.handleInput("\x1b[B");
+    assert.strictEqual(state.questionStates.get("q1")!.focusIndex, 1);
+  });
+
+  it("routes hotkey letters and spaces into Other input", () => {
+    const state = makeDialogState();
+    const qState = state.questionStates.get("q1")!;
+    const component = createDialogComponent(state, () => {}, () => {});
+    component.handleInput("o");
+    for (const char of "join ? now") component.handleInput(char);
+    assert.strictEqual(qState.otherDraft, "join ? now");
+    assert.strictEqual(qState.noteInputMode, false);
+  });
+
+  it("discards Other edits on Escape", () => {
+    const state = makeDialogState();
+    const qState = state.questionStates.get("q1")!;
+    qState.otherText = "saved";
+    const component = createDialogComponent(state, () => {}, () => {});
+    component.handleInput("o");
+    component.handleInput("x");
+    component.handleInput("\x1b");
+    assert.strictEqual(qState.otherText, "saved");
+    assert.strictEqual(qState.otherDraft, "saved");
+  });
+
+  it("marks multi-select answered on Space and clears on deselect", () => {
+    const q = makeQuestion({ multiSelect: true });
+    const state = makeDialogState();
+    state.questions = [q];
+    state.questionStates = new Map([[q.id, initQuestionState(q)]]);
+    const component = createDialogComponent(state, () => {}, () => {});
+    const qState = state.questionStates.get(q.id)!;
+    component.handleInput(" ");
+    assert.strictEqual(qState.answered, true);
+    component.handleInput(" ");
+    assert.strictEqual(qState.answered, false);
+  });
+
+  it("enters review after required questions while optional remain unanswered", () => {
+    const state = makeDialogState();
+    state.questions[1].required = false;
+    const component = createDialogComponent(state, () => {}, () => {});
+    component.handleInput("\r");
+    assert.strictEqual(state.inReviewMode, true);
+    assert.strictEqual(state.questionStates.get("q2")!.answered, false);
+  });
+
+  it("never renders lines wider than the terminal", () => {
+    const state = makeDialogState();
+    state.questions[0].options[0].description = "A very long description that must wrap safely";
+    const component = createDialogComponent(state, () => {}, () => {});
+    assert.ok(component.render(20).every((line) => line.length <= 20));
   });
 });

@@ -6,8 +6,8 @@ import { Type } from "@sinclair/typebox";
 export const OptionSchema = Type.Object(
   {
     id: Type.String({ minLength: 1, description: "Unique identifier for this option" }),
-    label: Type.String({ description: "Display label shown to the user" }),
-    description: Type.String({ description: "Description shown below the label" }),
+    label: Type.String({ minLength: 1, description: "Display label shown to the user" }),
+    description: Type.String({ minLength: 1, description: "Description shown below the label" }),
     preview: Type.Optional(Type.String({ description: "Preview text shown when selected (single-select only)" })),
     recommended: Type.Optional(Type.Boolean({ description: "Mark this as the recommended choice" })),
   },
@@ -20,15 +20,17 @@ export const OptionSchema = Type.Object(
 export const QuestionSchema = Type.Object(
   {
     id: Type.String({ minLength: 1, description: "Unique identifier for this question" }),
-    question: Type.String({
+    question: Type.String({ minLength: 1,
       description: "Full question text (must end with '?')",
     }),
-    header: Type.String({
+    header: Type.String({ minLength: 1, maxLength: 12,
       description: "Short header (max 12 characters)",
     }),
     multiSelect: Type.Optional(Type.Boolean({ description: "If true, user can select multiple options" })),
     options: Type.Array(OptionSchema, {
-      description: "Available answer options",
+      minItems: 2,
+      maxItems: 4,
+      description: "Two to four answer options; Other... is added automatically",
     }),
     required: Type.Optional(Type.Boolean({ description: "Whether this question requires an answer", default: true })),
   },

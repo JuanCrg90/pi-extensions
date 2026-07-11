@@ -1,4 +1,5 @@
-import { Input, Key, matchesKey, wrapTextWithAnsi, type Focusable } from "@earendil-works/pi-tui";
+import { DynamicBorder, type Theme } from "@earendil-works/pi-coding-agent";
+import { Box, Container, Input, Key, matchesKey, Text, type Focusable } from "@earendil-works/pi-tui";
 import type { DialogState, QuestionState } from "./types.js";
 import { getMissingRequired, getFocusedOptionPreview, questionHasAnyPreview, renderPreviewPanel, renderQuestion, renderReviewTab, renderTabs } from "./render.js";
 import { getPreferredFocusIndex, wrapQuestionIndex } from "./state.js";
@@ -15,10 +16,18 @@ export type DialogCallback =
   | { type: "review_submit" }
   | { type: "review_cancel" };
 
+const plainTheme = {
+  fg: (_color: string, text: string) => text,
+  bold: (text: string) => text,
+};
+
+type DialogTheme = Pick<Theme, "fg" | "bold">;
+
 export function createDialogComponent(
   state: DialogState,
   onDone: () => void,
   onEvent: (event: DialogCallback) => void,
+  theme: DialogTheme = plainTheme as DialogTheme,
 ): {
   render(width: number): string[];
   invalidate(): void;
@@ -135,6 +144,42 @@ export function createDialogComponent(
     qState.noteText = "";
     qState.editingNoteOptionIndex = -1;
     state.statusMessage = value ? "Note saved" : "Note cleared";
+  }
+
+  function styleLine(line: string): string {
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith("❯") || trimmed.includes("Review Answers") || trimmed.includes("── Preview")) {
+      return theme.fg("accent", theme.bold(line));
+    }
+    if (trimmed.startsWith("⚠") || line.startsWith("Press Esc") || line.startsWith("Missing:")) {
+      return theme.fg("warning", line);
+    }
+    if (trimmed.startsWith("▸")) return theme.fg("accent", line);
+    if (trimmed.startsWith("✓") || trimmed.startsWith("(x)") || trimmed.startsWith("(•)")) {
+      return theme.fg("success", line);
+    }
+    if (
+      trimmed.startsWith("[") ||
+      trimmed.startsWith("↑") ||
+      trimmed.startsWith("←") ||
+      trimmed.startsWith("Enter") ||
+      trimmed.startsWith("Esc") ||
+      trimmed.startsWith("Ctrl-C") ||
+      trimmed.startsWith("Tab/") ||
+      trimmed.startsWith("Space") ||
+      trimmed.startsWith("o ") ||
+      trimmed.startsWith("n /") ||
+      trimmed.startsWith("? ") ||
+      trimmed.startsWith("Any key")
+    ) {
+      return theme.fg("dim", line);
+    }
+    if (line.startsWith("    ")) return theme.fg("muted", line);
+    return line;
+  }
+
+  function addText(container: Container, lines: string[], paddingX = 1): void {
+    container.addChild(new Text(lines.map(styleLine).join("\n"), paddingX, 0));
   }
 
   function handleInput(data: string): void {
@@ -312,9 +357,18 @@ export function createDialogComponent(
   return {
     render(width) {
       if (disposed) return [];
-      const lines = state.questions.length > 1 ? [...renderTabs(state, state.reviewPickerIndex, width), ""] : [];
-      if (state.inReviewMode) lines.push(...renderReviewTab(state));
-      else {
+      const safeWidth = Math.max(1, width);
+      const container = new Container();
+      const borderColor = (text: string) => theme.fg("borderAccent", text);
+      container.addChild(new DynamicBorder(borderColor));
+
+      if (state.questions.length > 1) {
+        addText(container, [...renderTabs(state, state.reviewPickerIndex, Math.max(1, safeWidth - 2)), ""]);
+      }
+
+      if (state.inReviewMode) {
+        addText(container, renderReviewTab(state));
+      } else {
         const { question, qState } = current();
         if (qState.noteInputMode || qState.otherInputMode) {
           const noteKey = qState.editingNoteOptionIndex === -2
@@ -325,17 +379,21 @@ export function createDialogComponent(
           const label = qState.otherInputMode
             ? "Other... answer"
             : `Note for "${noteKey === "$question" ? question.header : noteKey === "$other" ? "Other..." : noteKey}"`;
-          lines.push(state.statusMessage || `❯ ${question.header}: ${question.question}`, "", `  ${label}`, "");
-          lines.push(...activeInput.render(Math.max(1, width - 4)).map((line) => `  ${line}`));
-          lines.push("", "  Enter save • Esc cancel • Ctrl-C dismiss");
+          addText(container, [state.statusMessage || `❯ ${question.header}: ${question.question}`, "", label]);
+          const inputBox = new Box(1, 0);
+          inputBox.addChild(activeInput);
+          container.addChild(inputBox);
+          addText(container, ["", "Enter save • Esc cancel • Ctrl-C dismiss"]);
         } else {
-          lines.push(...(!question.multiSelect && questionHasAnyPreview(question)
-            ? renderPreviewPanel(state, state.currentIndex, width)
-            : renderQuestion(state, state.currentIndex)));
+          const lines = !question.multiSelect && questionHasAnyPreview(question)
+            ? renderPreviewPanel(state, state.currentIndex, Math.max(1, safeWidth - 2))
+            : renderQuestion(state, state.currentIndex);
+          addText(container, lines);
         }
       }
-      const safeWidth = Math.max(1, width);
-      return lines.flatMap((line) => wrapTextWithAnsi(line, safeWidth));
+
+      container.addChild(new DynamicBorder(borderColor));
+      return container.render(safeWidth);
     },
     invalidate() { activeInput.invalidate(); },
     handleInput,

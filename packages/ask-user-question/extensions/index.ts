@@ -161,7 +161,7 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
         });
 
         const dialogPromise = ctx.ui.custom<AskUserQuestionResult | null>(
-          (tui, _theme, _kb, done) => {
+          (tui, theme, _kb, done) => {
             finishDialog = done;
             return createDialogComponent(
               state,
@@ -217,6 +217,7 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
                   });
                 }
               },
+              theme,
             );
           },
           { overlay: true },

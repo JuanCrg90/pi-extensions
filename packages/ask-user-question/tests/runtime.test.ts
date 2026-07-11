@@ -298,6 +298,26 @@ describe("dialog component regressions", () => {
     assert.strictEqual(state.questionStates.get("q2")!.answered, false);
   });
 
+  it("applies Pi theme colors to dialog semantics", () => {
+    const state = makeDialogState();
+    const theme = {
+      fg: (color: string, text: string) => `<${color}>${text}</${color}>`,
+      bold: (text: string) => `<bold>${text}</bold>`,
+    };
+    const component = createDialogComponent(state, () => {}, () => {}, theme as any);
+    const output = component.render(80).join("\n");
+    assert.match(output, /<accent><bold>❯ Pick:/);
+    assert.match(output, /<dim>.*Enter: confirm/);
+  });
+
+  it("renders the dialog inside official Pi borders", () => {
+    const state = makeDialogState();
+    const component = createDialogComponent(state, () => {}, () => {});
+    const lines = component.render(40);
+    assert.match(lines[0], /^─+$/);
+    assert.match(lines.at(-1) ?? "", /^─+$/);
+  });
+
   it("never renders lines wider than the terminal", () => {
     const state = makeDialogState();
     state.questions[0].options[0].description = "A very long description that must wrap safely";

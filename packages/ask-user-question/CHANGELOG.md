@@ -2,23 +2,37 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-10
+
 ### Added
-- AskUserQuestion tool scaffold and schema/validation layer
-- Stable ID-keyed answers and annotations
-- Single-select, multi-select, `Other...`, notes, review flow, preview panel
-- Plain-text single-select preview with side-by-side / stacked layouts
-- Runtime `_signal` abort support and `_onUpdate` milestones
-- Custom `renderCall` / `renderResult` summaries
-- Runtime / presentation / preview / review regression tests
+- Global `AskUserQuestion` tool with strict TypeBox input schema
+- Stable ID-keyed single-select and multi-select results
+- Auto-injected `Other...` answers with lossless re-editing
+- Explicit empty multi-select confirmation
+- Batched question navigation and review/submit flow
+- Optional-question support with required-question validation
+- Per-option and question-level notes
+- Plain-text single-select previews with wide and narrow layouts
+- Recommended-option markers
+- External `AbortSignal` cancellation and low-noise progress milestones
+- Compact tool call and result transcript renderers
+- Official Pi TUI input, composition, border, focus, and theme controls
+- Package-root extension entrypoint
+- Unit and runtime regression coverage
+
+### Changed
+- Include the complete structured result in model-visible tool content so
+  answers, annotations, previews, and metadata are available to follow-up
+  responses
+- Render multi-select selections in deterministic option order
+- Wrap chips and dialog output to terminal width
 
 ### Fixed
-- One-question flows now submit immediately
-- Multi-question flows no longer start inside review mode
-- Review submit now completes cleanly through outer result builder
-- `Tab` question switching now advances correctly
-- Revisiting `Other...` restores focus correctly
-- Multi-select `Space` on `Other...` no longer crashes
-- Unanswered multi-select questions are omitted from result answers
-- Help and controls text now match real behavior
-- Required-question checks ignore `required: false`
-- Working indicator restore now guaranteed in `finally`
+- Restore Pi's working indicator on every completion and cancellation path
+- Return `terminate: true` when the dialog is dismissed
+- Handle real terminal key sequences through Pi key matching
+- Prevent input-mode shortcuts from consuming typed characters
+- Preserve saved custom answers when edits are cancelled
+- Restore useful focus when revisiting questions
+- Omit unanswered optional questions and empty annotations from results
+- Keep help text, prompt guidance, README, validation, and runtime behavior aligned

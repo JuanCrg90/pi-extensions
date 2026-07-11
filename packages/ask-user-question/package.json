@@ -1,6 +1,6 @@
 {
   "name": "@juancrg90/ask-user-question",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Interactive AskUserQuestion tool for Pi — pause and ask the user structured questions in the TUI with stable ID-based results.",
   "keywords": [
     "pi-package",
@@ -46,7 +46,8 @@
   "files": [
     "index.ts",
     "extensions/",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "devDependencies": {
     "tsx": "^4.23.0"

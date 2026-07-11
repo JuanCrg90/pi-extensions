@@ -55,10 +55,16 @@ interface Option {
 
 Rules:
 - 1–8 questions
-- unique `question.id`
-- unique `option.id` within each question
-- explicit `Other` forbidden; tool auto-adds `Other...`
-- preview allowed only on single-select
+- 2–4 options per question
+- unique, non-blank `question.id`
+- unique, non-blank `option.id` within each question
+- IDs beginning with `$` and the internal `__other__` ID are reserved
+- question text must end with `?`
+- header must be non-blank and no longer than 12 characters
+- labels and descriptions must be non-blank; labels must be unique per question
+- explicit `Other` / `Other...` options are forbidden; the tool auto-adds one
+- preview is allowed only on single-select questions
+- at most one option per question may set `recommended: true`
 
 ## Output
 
@@ -96,6 +102,10 @@ interface QuestionAnnotations {
 }
 ```
 
+The complete structured result is included in model-visible tool content as
+well as tool details. Follow-up responses can therefore use answers, notes,
+preview context, and preserved metadata without reading TUI-only state.
+
 ## Runtime behavior
 
 - one-question flow submits immediately after answer
@@ -131,10 +141,18 @@ Help:
 - any key closes help
 
 Other... / note input:
-- type plain text
-- `Enter` save
-- `Esc` cancel
-- `Backspace` delete
+- uses Pi TUI's native single-line `Input` control
+- type or paste plain text; Unicode and terminal paste are supported
+- `←/→`, `Home`, and `End` move the cursor
+- `Enter` saves
+- `Esc` cancels without overwriting the saved value
+- configured Pi editor bindings handle deletion, word movement, and undo
+
+## TUI
+
+The dialog uses Pi's native `Container`, `Text`, `Box`, `Input`, and
+`DynamicBorder` controls. It follows the active Pi theme for headings, focus,
+selections, warnings, descriptions, controls, and borders.
 
 ## Preview
 

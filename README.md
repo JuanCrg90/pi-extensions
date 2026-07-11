@@ -28,6 +28,7 @@ pi-extensions/
 │   │   └── README.md
 │   ├── ask-user-question/
 │   │   ├── package.json
+│   │   ├── index.ts
 │   │   ├── extensions/
 │   │   ├── tests/
 │   │   └── README.md

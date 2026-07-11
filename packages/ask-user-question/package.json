@@ -21,10 +21,10 @@
   },
   "license": "MIT",
   "type": "module",
-  "main": "./extensions/index.ts",
+  "main": "./index.ts",
   "pi": {
     "extensions": [
-      "./extensions/index.ts"
+      "./index.ts"
     ]
   },
   "peerDependencies": {
@@ -44,6 +44,7 @@
     "access": "public"
   },
   "files": [
+    "index.ts",
     "extensions/",
     "README.md"
   ],

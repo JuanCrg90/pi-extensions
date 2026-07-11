@@ -48,7 +48,7 @@ describe("buildContentText", () => {
     );
   });
 
-  it("shows single and multi answers", () => {
+  it("sends the complete structured result to the model", () => {
     const result: AskUserQuestionResult = {
       cancelled: false,
       answers: {
@@ -62,11 +62,20 @@ describe("buildContentText", () => {
           empty: false,
         },
       },
+      annotations: {
+        q1: {
+          questionNotes: "Prefer this globally",
+          optionNotes: { o1: "Matches my terminal" },
+        },
+      },
+      metadata: { source: "config-test", flowId: "flow-1" },
     };
 
     const text = buildContentText(result);
-    assert.ok(text.includes("q1: A"));
-    assert.ok(text.includes("q2: [A, Other... (Other: Custom)]"));
+    const json = text.slice(text.indexOf("{"));
+    assert.deepStrictEqual(JSON.parse(json), result);
+    assert.match(text, /Prefer this globally/);
+    assert.match(text, /Matches my terminal/);
   });
 });
 

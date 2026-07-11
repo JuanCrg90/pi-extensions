@@ -15,22 +15,10 @@ export function buildContentText(result: AskUserQuestionResult): string {
     return "User dismissed the question dialog.";
   }
 
-  const parts: string[] = [];
-  for (const [qid, answer] of Object.entries(result.answers ?? {})) {
-    if (answer.kind === "single") {
-      parts.push(
-        `${qid}: ${answer.label}${answer.other ? ` (Other: ${answer.text})` : ""}`,
-      );
-      continue;
-    }
-
-    const selLabels = answer.selections
-      .map((s) => `${s.label}${s.other ? ` (Other: ${s.text})` : ""}`)
-      .join(", ");
-    parts.push(`${qid}: [${answer.empty ? "empty" : selLabels}]`);
-  }
-
-  return parts.join("\n");
+  // Tool result details support custom TUI rendering but are not included in
+  // model context. Keep the complete structured result in text content so the
+  // agent receives option IDs, custom answers, notes, previews, and metadata.
+  return `User submitted the following AskUserQuestion result:\n${JSON.stringify(result, null, 2)}`;
 }
 
 export function buildResultSummary(result: AskUserQuestionResult): string[] {

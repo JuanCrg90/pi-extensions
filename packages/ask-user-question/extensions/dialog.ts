@@ -1,4 +1,4 @@
-import { Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Input, Key, matchesKey, wrapTextWithAnsi, type Focusable } from "@earendil-works/pi-tui";
 import type { DialogState, QuestionState } from "./types.js";
 import { getMissingRequired, getFocusedOptionPreview, questionHasAnyPreview, renderPreviewPanel, renderQuestion, renderReviewTab, renderTabs } from "./render.js";
 import { getPreferredFocusIndex, wrapQuestionIndex } from "./state.js";
@@ -24,8 +24,18 @@ export function createDialogComponent(
   invalidate(): void;
   handleInput(data: string): void;
   dispose(): void;
-} {
+} & Focusable {
   let disposed = false;
+  let componentFocused = false;
+  let activeInput = new Input();
+
+  function prepareInput(value: string): void {
+    activeInput = new Input();
+    // Input.setValue() preserves its old cursor position. Feeding the initial
+    // value through the component places the cursor at the end for re-editing.
+    if (value) activeInput.handleInput(value);
+    activeInput.focused = componentFocused;
+  }
 
   const current = () => {
     const question = state.questions[state.currentIndex];
@@ -84,6 +94,7 @@ export function createDialogComponent(
   function openOther(): void {
     const { question, qState } = current();
     qState.otherDraft = qState.otherText;
+    prepareInput(qState.otherText);
     qState.otherInputMode = true;
     state.statusMessage = "Enter Other... text";
     onEvent({ type: "other_input", questionId: question.id });
@@ -97,6 +108,7 @@ export function createDialogComponent(
       ? qState.annotations.questionNotes ?? ""
       : qState.annotations.optionNotes?.[key] ?? "";
     qState.editingNoteOptionIndex = questionLevel ? -2 : qState.focusIndex;
+    prepareInput(qState.noteText);
     qState.noteInputMode = true;
     state.statusMessage = questionLevel ? "Question note" : "Option note";
     onEvent({ type: "note_access", questionId: question.id, optionId: key });
@@ -140,7 +152,8 @@ export function createDialogComponent(
       return;
     }
 
-    // Input modes own all printable input. Only Enter, Esc and Backspace escape.
+    // Delegate editing to Pi TUI's Input component. Keep Enter/Esc here so
+    // questionnaire save/cancel semantics remain explicit.
     if (qState.noteInputMode || qState.otherInputMode) {
       if (matchesKey(data, Key.escape)) {
         qState.noteInputMode = false;
@@ -150,9 +163,12 @@ export function createDialogComponent(
         qState.editingNoteOptionIndex = -1;
         state.statusMessage = "";
       } else if (matchesKey(data, Key.enter)) {
-        if (qState.noteInputMode) saveNote(qState);
-        else {
-          const value = (qState.otherDraft ?? "").trim();
+        const inputValue = activeInput.getValue();
+        if (qState.noteInputMode) {
+          qState.noteText = inputValue;
+          saveNote(qState);
+        } else {
+          const value = inputValue.trim();
           if (!value) {
             state.statusMessage = "Cannot submit empty Other... text";
             return;
@@ -172,12 +188,10 @@ export function createDialogComponent(
             markAnswered();
           }
         }
-      } else if (matchesKey(data, Key.backspace)) {
-        if (qState.noteInputMode) qState.noteText = qState.noteText.slice(0, -1);
-        else qState.otherDraft = (qState.otherDraft ?? "").slice(0, -1);
-      } else if (!data.startsWith("\x1b") && data.length > 0) {
-        if (qState.noteInputMode) qState.noteText += data;
-        else qState.otherDraft = (qState.otherDraft ?? "") + data;
+      } else {
+        activeInput.handleInput(data);
+        if (qState.noteInputMode) qState.noteText = activeInput.getValue();
+        else qState.otherDraft = activeInput.getValue();
       }
       return;
     }
@@ -302,15 +316,34 @@ export function createDialogComponent(
       if (state.inReviewMode) lines.push(...renderReviewTab(state));
       else {
         const { question, qState } = current();
-        lines.push(...(!question.multiSelect && questionHasAnyPreview(question) && !qState.otherInputMode && !qState.noteInputMode
-          ? renderPreviewPanel(state, state.currentIndex, width)
-          : renderQuestion(state, state.currentIndex)));
+        if (qState.noteInputMode || qState.otherInputMode) {
+          const noteKey = qState.editingNoteOptionIndex === -2
+            ? "$question"
+            : qState.editingNoteOptionIndex === question.options.length
+              ? "$other"
+              : question.options[qState.editingNoteOptionIndex]?.id;
+          const label = qState.otherInputMode
+            ? "Other... answer"
+            : `Note for "${noteKey === "$question" ? question.header : noteKey === "$other" ? "Other..." : noteKey}"`;
+          lines.push(state.statusMessage || `❯ ${question.header}: ${question.question}`, "", `  ${label}`, "");
+          lines.push(...activeInput.render(Math.max(1, width - 4)).map((line) => `  ${line}`));
+          lines.push("", "  Enter save • Esc cancel • Ctrl-C dismiss");
+        } else {
+          lines.push(...(!question.multiSelect && questionHasAnyPreview(question)
+            ? renderPreviewPanel(state, state.currentIndex, width)
+            : renderQuestion(state, state.currentIndex)));
+        }
       }
       const safeWidth = Math.max(1, width);
       return lines.flatMap((line) => wrapTextWithAnsi(line, safeWidth));
     },
-    invalidate() {},
+    invalidate() { activeInput.invalidate(); },
     handleInput,
+    get focused() { return componentFocused; },
+    set focused(value: boolean) {
+      componentFocused = value;
+      activeInput.focused = value;
+    },
     dispose() { disposed = true; },
   };
 }

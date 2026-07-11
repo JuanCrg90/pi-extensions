@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import askUserQuestion, {
   createDialogComponent,
   initQuestionState,
@@ -252,6 +253,17 @@ describe("dialog component regressions", () => {
     assert.strictEqual(qState.noteInputMode, false);
   });
 
+  it("uses Pi Input cursor editing for Other answers", () => {
+    const state = makeDialogState();
+    const qState = state.questionStates.get("q1")!;
+    const component = createDialogComponent(state, () => {}, () => {});
+    component.handleInput("o");
+    component.handleInput("abc");
+    component.handleInput("\x1b[D");
+    component.handleInput("X");
+    assert.strictEqual(qState.otherDraft, "abXc");
+  });
+
   it("discards Other edits on Escape", () => {
     const state = makeDialogState();
     const qState = state.questionStates.get("q1")!;
@@ -290,6 +302,6 @@ describe("dialog component regressions", () => {
     const state = makeDialogState();
     state.questions[0].options[0].description = "A very long description that must wrap safely";
     const component = createDialogComponent(state, () => {}, () => {});
-    assert.ok(component.render(20).every((line) => line.length <= 20));
+    assert.ok(component.render(20).every((line) => visibleWidth(line) <= 20));
   });
 });

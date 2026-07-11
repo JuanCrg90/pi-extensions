@@ -160,44 +160,11 @@ export function renderQuestion(
   // Header/status
   lines.push(state.statusMessage || `❯ ${q.header}: ${q.question}`);
 
-  if (qState.noteInputMode) {
-    const noteKey = qState.editingNoteOptionIndex === -2
-      ? "$question"
-      : qState.editingNoteOptionIndex === q.options.length
-        ? "$other"
-        : q.options[qState.editingNoteOptionIndex]?.id || "";
-    const noteLabel = noteKey === "$question" ? q.header : noteKey === "$other" ? "Other..." : noteKey;
+  if (qState.noteInputMode || qState.otherInputMode) {
+    // Interactive text fields are rendered by the dialog's Pi TUI Input
+    // component. Keep this pure helper limited to descriptive fallback text.
     lines.push("");
-    lines.push(`  Note for "${noteLabel}"`);
-    lines.push("");
-    lines.push(`  ┌─────────────────────────────────────┐`);
-    const maxLineLen = 36;
-    const text = qState.noteText;
-    for (let i = 0; i < text.length; i += maxLineLen) {
-      const chunk = text.slice(i, i + maxLineLen);
-      lines.push(`  │ ${chunk}${" ".repeat(maxLineLen - chunk.length)} │`);
-    }
-    lines.push(`  │${" ".repeat(maxLineLen)}│`);
-    lines.push(`  └─────────────────────────────────────┘`);
-    lines.push("");
-    lines.push("  [Type text]  [Enter: save]  [Esc: cancel]  [Backspace: delete]");
-    lines.push("  [Ctrl-C: dismiss now]");
-  } else if (qState.otherInputMode) {
-    lines.push("");
-    lines.push("  Other... answer");
-    lines.push("");
-    lines.push("  ┌─────────────────────────────────────┐");
-    const maxLineLen = 36;
-    const text = qState.otherDraft ?? "";
-    for (let i = 0; i < text.length; i += maxLineLen) {
-      const chunk = text.slice(i, i + maxLineLen);
-      lines.push(`  │ ${chunk}${" ".repeat(maxLineLen - chunk.length)} │`);
-    }
-    lines.push(`  │${" ".repeat(maxLineLen)}│`);
-    lines.push("  └─────────────────────────────────────┘");
-    lines.push("");
-    lines.push("  [Type text]  [Enter: save]  [Esc: cancel]  [Backspace: delete]");
-    lines.push("  [Ctrl-C: dismiss now]");
+    lines.push(qState.otherInputMode ? "  Other... answer" : "  Note editor");
   } else {
     const allOptions = getRenderedOptions(q, qState);
     for (let i = 0; i < allOptions.length; i++) {

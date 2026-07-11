@@ -191,7 +191,7 @@ describe("L3 — Preview rendering", () => {
     const lines = renderPreviewPanel(state, 0, 80);
 
     // Should show normal rendering (with note editor)
-    assert.ok(lines.some((l) => l.includes("Note for")));
+    assert.ok(lines.some((l) => l.includes("Note editor")));
   });
 
   it("renderPreviewPanel does not show preview in Other... input mode", () => {

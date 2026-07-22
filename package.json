@@ -14,7 +14,8 @@
     "publish:all": "pnpm -r publish --access public",
     "publish:token-rate": "pnpm --filter @juancrg90/token-rate publish --access public",
     "publish:dracula-themes": "pnpm --filter @juancrg90/dracula-themes publish --access public",
-    "publish:nightfox-themes": "pnpm --filter @juancrg90/nightfox-themes publish --access public"
+    "publish:nightfox-themes": "pnpm --filter @juancrg90/nightfox-themes publish --access public",
+    "publish:ask-user-question": "pnpm --filter @juancrg90/ask-user-question publish --access public"
   },
   "workspaces": [
     "packages/*"

@@ -45,6 +45,19 @@ export function deleteState(projectPath: string): void {
   }
 }
 
+export function saveWidgetState(projectPath: string, widgetState: WidgetState): void {
+  saveState(projectPath, {
+    projectTitle: widgetState.projectTitle,
+    tasks: widgetState.groups.reduce((acc, group) => {
+      for (const task of group.tasks) {
+        acc[task.id] = { state: task.state };
+      }
+      return acc;
+    }, {} as Record<string, { state: TaskState }>),
+    collapsedGroups: [...widgetState.collapsedGroups],
+  });
+}
+
 export function buildWidgetState(
   projectPath: string,
   parsed: ParsedTodoList,

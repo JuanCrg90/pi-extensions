@@ -10,6 +10,7 @@ Mono-repo for [pi](https://github.com/earendil-works/pi-mono) extensions — a c
 | **dracula-themes** | Theme pack | Dracula Classic (`dracula`) + Alucard Classic (`alucard`) for Pi | `pi install npm:@juancrg90/dracula-themes` | [README](packages/dracula-themes/README.md) |
 | **nightfox-themes** | Theme pack | Nightfox collection (7 themes: dark + light) for Pi | `pi install npm:@juancrg90/nightfox-themes` | [README](packages/nightfox-themes/README.md)
 | **ask-user-question** | Extension | Interactive AskUserQuestion tool — pause and ask structured questions in the TUI with stable ID-based results | `pi install npm:@juancrg90/ask-user-question` | [README](packages/ask-user-question/README.md) |
+| **todo-widget** | Extension | Persistent accordion-style todo list widget — display task groups from markdown and update state as the agent works | `pi install npm:@juancrg90/todo-widget` | [README](packages/todo-widget/README.md) |
 
 ## 🏗 Structure
 
@@ -30,6 +31,12 @@ pi-extensions/
 │   │   ├── package.json
 │   │   ├── index.ts
 │   │   ├── extensions/
+│   │   ├── tests/
+│   │   └── README.md
+│   ├── todo-widget/
+│   │   ├── package.json
+│   │   ├── index.ts
+│   │   ├── src/
 │   │   ├── tests/
 │   │   └── README.md
 │   ├── nightfox-themes/

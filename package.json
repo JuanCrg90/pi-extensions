@@ -11,6 +11,7 @@
   "author": "JuanCrg90 <https://github.com/JuanCrg90>",
   "license": "MIT",
   "scripts": {
+    "test": "pnpm -r test",
     "publish:all": "pnpm -r publish --access public",
     "publish:token-rate": "pnpm --filter @juancrg90/token-rate publish --access public",
     "publish:dracula-themes": "pnpm --filter @juancrg90/dracula-themes publish --access public",

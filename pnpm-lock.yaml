@@ -28,6 +28,19 @@ importers:
 
   packages/nightfox-themes: {}
 
+  packages/todo-widget:
+    dependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: '*'
+        version: 0.80.3(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
+        specifier: '*'
+        version: 0.80.3
+    devDependencies:
+      tsx:
+        specifier: ^4.23.0
+        version: 4.23.0
+
   packages/token-rate:
     dependencies:
       '@earendil-works/pi-coding-agent':

@@ -1,0 +1,51 @@
+{
+  "name": "@juancrg90/todo-widget",
+  "version": "0.1.0",
+  "description": "Persistent accordion-style todo list widget for pi — display agent task groups from markdown and update state from the agent.",
+  "keywords": [
+    "pi-package",
+    "todo-widget",
+    "extension",
+    "pi",
+    "pi-tui",
+    "task-list"
+  ],
+  "homepage": "https://github.com/JuanCrg90/pi-extensions/tree/main/packages/todo-widget",
+  "bugs": {
+    "url": "https://github.com/JuanCrg90/pi-extensions/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JuanCrg90/pi-extensions.git",
+    "directory": "packages/todo-widget"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.ts",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "engines": {
+    "pi": ">=0.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.0"
+  },
+  "files": [
+    "index.ts",
+    "src/",
+    "README.md"
+  ]
+}

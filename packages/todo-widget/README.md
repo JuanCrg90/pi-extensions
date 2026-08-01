@@ -36,10 +36,15 @@ The agent loads a markdown checklist with the `LoadTodoList` tool, then updates 
   - `- [/]` in-progress
   - `- [x]` done
 
+### Task IDs
+
+Task IDs are stable and derived from the markdown text: `<group-slug>:<item-slug>`. For example, a task under `## Task 1: Setup` with item `- [ ] Confirm env` gets ID `task-1-setup:confirm-env`. The `LoadTodoList` and `ListTodoTasks` tools return the exact IDs for each task.
+
 ### Tools
 
 - **LoadTodoList** — load a markdown task list into the widget.
-- **UpdateTodoTask** — mark a task as `not-started`, `in-progress`, or `done`. Task IDs are stable, derived from the group and item text.
+- **ListTodoTasks** — return the current list with exact task IDs.
+- **UpdateTodoTask** — mark a task as `not-started`, `in-progress`, or `done`. Use the IDs returned by `LoadTodoList` or `ListTodoTasks`.
 - **ClearTodoList** — clear the widget and delete persisted state.
 
 ### Keyboard shortcuts

@@ -63,11 +63,11 @@ test("buildWidgetState merges persisted state and auto-collapses done groups", (
     const state = buildWidgetState(dir, parsed);
 
     assert.equal(state.projectTitle, "P");
-    assert.equal(state.groups[0].id, "task-group-a");
+    assert.equal(state.groups[0].id, "group-a");
     assert.equal(state.groups[0].tasks[0].state, "done");
     assert.equal(state.groups[0].tasks[1].state, "done");
-    assert.ok(state.collapsedGroups.has("task-group-a"));
-    assert.ok(!state.collapsedGroups.has("task-group-b"));
+    assert.ok(state.collapsedGroups.has("group-a"));
+    assert.ok(!state.collapsedGroups.has("group-b"));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -84,18 +84,18 @@ test("updateTaskState persists and updates widget state", () => {
 - [ ] Two
 `);
     let state = buildWidgetState(dir, parsed);
-    state = updateTaskState(dir, state, "task-group-a:one", "done");
+    state = updateTaskState(dir, state, "group-a:one", "done");
 
     assert.equal(state.groups[0].tasks[0].state, "done");
     assert.equal(state.groups[0].tasks[1].state, "not-started");
-    assert.ok(!state.collapsedGroups.has("task-group-a"));
+    assert.ok(!state.collapsedGroups.has("group-a"));
 
-    state = updateTaskState(dir, state, "task-group-a:two", "done");
-    assert.ok(state.collapsedGroups.has("task-group-a"));
+    state = updateTaskState(dir, state, "group-a:two", "done");
+    assert.ok(state.collapsedGroups.has("group-a"));
 
     const persisted = loadState(dir);
-    assert.equal(persisted.tasks?.["task-group-a:one"].state, "done");
-    assert.equal(persisted.tasks?.["task-group-a:two"].state, "done");
+    assert.equal(persisted.tasks?.["group-a:one"].state, "done");
+    assert.equal(persisted.tasks?.["group-a:two"].state, "done");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -111,11 +111,11 @@ test("setCollapsedGroups persists collapsed state", () => {
 - [ ] One
 `);
     let state = buildWidgetState(dir, parsed);
-    state = setCollapsedGroups(dir, state, new Set(["task-group-a"]));
+    state = setCollapsedGroups(dir, state, new Set(["group-a"]));
 
-    assert.ok(state.collapsedGroups.has("task-group-a"));
+    assert.ok(state.collapsedGroups.has("group-a"));
     const persisted = loadState(dir);
-    assert.deepEqual(persisted.collapsedGroups, ["task-group-a"]);
+    assert.deepEqual(persisted.collapsedGroups, ["group-a"]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

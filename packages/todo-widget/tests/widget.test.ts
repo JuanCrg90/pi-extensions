@@ -12,18 +12,18 @@ const baseState: WidgetState = {
   projectTitle: "Project",
   groups: [
     {
-      id: "task-group-a",
+      id: "group-a",
       title: "Group A",
       tasks: [
-        { id: "task-group-a:one", title: "One", state: "done" },
-        { id: "task-group-a:two", title: "Two", state: "not-started" },
+        { id: "group-a:one", title: "One", state: "done" },
+        { id: "group-a:two", title: "Two", state: "not-started" },
       ],
     },
     {
-      id: "task-group-b",
+      id: "group-b",
       title: "Group B",
       tasks: [
-        { id: "task-group-b:three", title: "Three", state: "in-progress" },
+        { id: "group-b:three", title: "Three", state: "in-progress" },
       ],
     },
   ],
@@ -52,7 +52,7 @@ test("createTodoWidget renders expanded groups", () => {
 test("createTodoWidget hides collapsed group tasks", () => {
   const state: WidgetState = {
     ...baseState,
-    collapsedGroups: new Set(["task-group-a"]),
+    collapsedGroups: new Set(["group-a"]),
   };
   const widget = createTodoWidget(null, theme, { state });
   const lines = widget.render(80);
@@ -74,14 +74,14 @@ test("createTodoWidget shows empty message when no groups", () => {
 
 test("findNextGroupId cycles forward", () => {
   const groups = baseState.groups;
-  assert.equal(findNextGroupId(groups, undefined), "task-group-a");
-  assert.equal(findNextGroupId(groups, "task-group-a"), "task-group-b");
-  assert.equal(findNextGroupId(groups, "task-group-b"), "task-group-a");
+  assert.equal(findNextGroupId(groups, undefined), "group-a");
+  assert.equal(findNextGroupId(groups, "group-a"), "group-b");
+  assert.equal(findNextGroupId(groups, "group-b"), "group-a");
 });
 
 test("findPreviousGroupId cycles backward", () => {
   const groups = baseState.groups;
-  assert.equal(findPreviousGroupId(groups, undefined), "task-group-b");
-  assert.equal(findPreviousGroupId(groups, "task-group-b"), "task-group-a");
-  assert.equal(findPreviousGroupId(groups, "task-group-a"), "task-group-b");
+  assert.equal(findPreviousGroupId(groups, undefined), "group-b");
+  assert.equal(findPreviousGroupId(groups, "group-b"), "group-a");
+  assert.equal(findPreviousGroupId(groups, "group-a"), "group-b");
 });

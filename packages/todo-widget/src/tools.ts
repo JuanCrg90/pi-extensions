@@ -21,6 +21,30 @@ interface ClearTodoListParams {
   confirm: boolean;
 }
 
+interface TaskSummary {
+  id: string;
+  title: string;
+  state: TaskState;
+  groupId: string;
+  groupTitle: string;
+}
+
+function buildTaskSummary(widgetState: WidgetState): TaskSummary[] {
+  const summary: TaskSummary[] = [];
+  for (const group of widgetState.groups) {
+    for (const task of group.tasks) {
+      summary.push({
+        id: task.id,
+        title: task.title,
+        state: task.state,
+        groupId: group.id,
+        groupTitle: group.title,
+      });
+    }
+  }
+  return summary;
+}
+
 export interface TodoState {
   widgetState: WidgetState | null;
   focusedGroupId: string | undefined;
@@ -87,6 +111,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
           projectTitle: widgetState.projectTitle,
           groupCount: widgetState.groups.length,
           taskCount: total,
+          tasks: buildTaskSummary(widgetState),
         },
       };
     },
@@ -100,7 +125,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
     promptSnippet: "Mark a todo task as not-started, in-progress, or done",
     promptGuidelines: [
       "Use UpdateTodoTask when the agent completes or starts a task.",
-      "taskId must be a stable ID from the todo widget, typically task-<group-slug>:<item-slug>.",
+      "taskId must be a stable ID from the todo widget. Use the tasks list returned by LoadTodoList or ListTodoTasks to get exact IDs.",
       "State changes persist to the project-local state file and refresh the widget.",
     ],
     parameters: {
@@ -138,6 +163,21 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
         };
       }
 
+      const taskExists = state.widgetState.groups.some((g) =>
+        g.tasks.some((t) => t.id === params.taskId),
+      );
+      if (!taskExists) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Task ID ${params.taskId} not found. Use ListTodoTasks to see available task IDs.`,
+            },
+          ],
+          details: { error: "task_not_found", taskId: params.taskId },
+        };
+      }
+
       const updated = updateTaskState(projectPath, state.widgetState, params.taskId, params.state);
       state.widgetState = updated;
       refreshWidget(ctx);
@@ -150,6 +190,59 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
           },
         ],
         details: { taskId: params.taskId, state: params.state },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "ListTodoTasks",
+    label: "List Todo Tasks",
+    description:
+      "Return the current todo list with group and task IDs, titles, and states. Use this to get exact taskIds for UpdateTodoTask.",
+    promptSnippet: "List the current todo tasks with their IDs",
+    promptGuidelines: [
+      "Use ListTodoTasks when you need the exact taskId for UpdateTodoTask.",
+      "Returns groups, tasks, and current states without modifying anything.",
+    ],
+    parameters: {
+      type: "object",
+      required: [],
+      properties: {},
+    },
+
+    async execute(
+      _toolCallId: string,
+      _params: Record<string, never>,
+      _signal: AbortSignal | undefined,
+      _onUpdate,
+      _ctx: ExtensionContext,
+    ) {
+      if (!state.widgetState) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "No todo list is loaded. Call LoadTodoList first.",
+            },
+          ],
+          details: { error: "no_list_loaded" },
+        };
+      }
+
+      const total = state.widgetState.groups.reduce((acc, g) => acc + g.tasks.length, 0);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Current todo list: ${state.widgetState.projectTitle} (${state.widgetState.groups.length} groups, ${total} tasks).`,
+          },
+        ],
+        details: {
+          projectTitle: state.widgetState.projectTitle,
+          groupCount: state.widgetState.groups.length,
+          taskCount: total,
+          tasks: buildTaskSummary(state.widgetState),
+        },
       };
     },
   });

@@ -11,7 +11,7 @@ const slugify = (text: string): string => {
 };
 
 const groupId = (groupTitle: string): string => {
-  return `task-${slugify(groupTitle)}`;
+  return slugify(groupTitle);
 };
 
 const itemId = (itemTitle: string): string => {

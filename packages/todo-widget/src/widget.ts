@@ -65,10 +65,10 @@ export function createTodoWidget(
     const isFocused = options.focusedGroupId === group.id;
 
     const groupPrefix = expanded ? "▼" : "▶";
-    const groupColor = groupDone ? "dim" : "default";
     const groupLine = `${groupPrefix} ${group.title} (${groupCount}/${group.tasks.length})`;
     const prefix = isFocused ? theme.fg("warning", "> ") : "  ";
-    container.addChild(new Text(prefix + theme.fg(groupColor, groupLine), 1, 0));
+    const coloredGroupLine = groupDone ? theme.fg("dim", groupLine) : groupLine;
+    container.addChild(new Text(prefix + coloredGroupLine, 1, 0));
 
     if (expanded) {
       for (const task of group.tasks) {

@@ -42,7 +42,7 @@ export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
     },
   });
 
-  pi.registerShortcut("enter", {
+  pi.registerShortcut("ctrl+shift+return", {
     description: "Toggle focused todo group",
     handler: async (ctx) => {
       if (!state.widgetState || !state.focusedGroupId) return;
@@ -58,23 +58,7 @@ export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
     },
   });
 
-  pi.registerShortcut("space", {
-    description: "Toggle focused todo group",
-    handler: async (ctx) => {
-      if (!state.widgetState || !state.focusedGroupId) return;
-      const collapsed = new Set(state.widgetState.collapsedGroups);
-      if (collapsed.has(state.focusedGroupId)) {
-        collapsed.delete(state.focusedGroupId);
-      } else {
-        collapsed.add(state.focusedGroupId);
-      }
-      const updated = setCollapsedGroups(projectPath, state.widgetState, collapsed);
-      state.widgetState = updated;
-      refreshWidget(ctx);
-    },
-  });
-
-  pi.registerShortcut("down", {
+  pi.registerShortcut("ctrl+shift+]", {
     description: "Focus next todo group",
     handler: async (ctx) => {
       if (!state.widgetState) return;
@@ -86,7 +70,7 @@ export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
     },
   });
 
-  pi.registerShortcut("up", {
+  pi.registerShortcut("ctrl+shift+[", {
     description: "Focus previous todo group",
     handler: async (ctx) => {
       if (!state.widgetState) return;

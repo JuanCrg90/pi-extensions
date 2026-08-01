@@ -236,6 +236,46 @@ test("ClearTodoList does not clear without confirmation", async () => {
   }
 });
 
+test("Group navigation shortcuts cycle focus and toggle collapse", async () => {
+  const dir = tempDir();
+  try {
+    await withCwd(dir, async () => {
+      const mock = createMockApi();
+      todoWidget(mock.api);
+
+      const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+      await mock.tools.LoadTodoList(
+        "call-1",
+        {
+          markdown: `# Project
+
+## Group A
+
+- [ ] One
+
+## Group B
+
+- [ ] Two
+`,
+        },
+        undefined,
+        undefined,
+        ctx,
+      );
+
+      const initialWidgets = mock.widgets.length;
+      await mock.shortcuts["ctrl+shift+["](ctx);
+      assert.equal(mock.widgets.length, initialWidgets + 1);
+
+      await mock.shortcuts["ctrl+shift+return"](ctx);
+      const persisted = JSON.parse(readFileSync(join(dir, ".pi", "todo-widget-state.json"), "utf-8"));
+      assert.ok(persisted.collapsedGroups.includes("task-group-b"));
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("Toggle shortcut flips widget visibility", async () => {
   const dir = tempDir();
   try {

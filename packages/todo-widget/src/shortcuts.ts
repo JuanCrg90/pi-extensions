@@ -12,7 +12,7 @@ export interface ShortcutDeps {
 export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
   const { state, projectPath, refreshWidget } = deps;
 
-  pi.registerShortcut("ctrl+shift+t", {
+  pi.registerShortcut("ctrl+shift+l", {
     description: "Toggle todo widget visibility",
     handler: async (ctx) => {
       state.widgetVisible = !state.widgetVisible;

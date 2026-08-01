@@ -46,7 +46,7 @@ The agent loads a markdown checklist with the `LoadTodoList` tool, then updates 
 
 | Shortcut | Action |
 |----------|--------|
-| `ctrl+shift+t` | Toggle widget visibility |
+| `ctrl+shift+l` | Toggle widget visibility |
 | `ctrl+shift+o` | Expand all groups |
 | `ctrl+shift+c` | Collapse all groups |
 | `up` / `down` | Focus previous / next group |

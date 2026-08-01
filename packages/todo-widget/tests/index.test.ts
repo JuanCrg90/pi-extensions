@@ -252,11 +252,11 @@ test("Toggle shortcut flips widget visibility", async () => {
         ctx,
       );
 
-      await mock.shortcuts["ctrl+shift+t"](ctx);
+      await mock.shortcuts["ctrl+shift+l"](ctx);
       assert.equal(mock.widgets[mock.widgets.length - 1], "empty");
       assert.equal(mock.notify[0], "Todo widget off");
 
-      await mock.shortcuts["ctrl+shift+t"](ctx);
+      await mock.shortcuts["ctrl+shift+l"](ctx);
       assert.equal(mock.widgets[mock.widgets.length - 1], "component");
       assert.equal(mock.notify[1], "Todo widget on");
     });

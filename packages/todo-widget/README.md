@@ -45,7 +45,7 @@ Task IDs are stable and derived from the markdown text: `<group-slug>:<item-slug
 - **LoadTodoList** — load a markdown task list into the widget.
 - **ListTodoTasks** — return the current list with exact task IDs.
 - **UpdateTodoTask** — mark a task as `not-started`, `in-progress`, or `done`. Use the IDs returned by `LoadTodoList` or `ListTodoTasks`.
-- **ClearTodoList** — clear the widget and delete persisted state.
+- **ClearTodoList** — clear the widget and delete persisted state. Only call this when the user explicitly asks to clear the list; do not call it automatically when a plan finishes.
 
 ### Keyboard shortcuts
 

@@ -251,10 +251,11 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
     name: "ClearTodoList",
     label: "Clear Todo List",
     description:
-      "Clear the current todo list, remove the widget, and delete the project-local state file.",
-    promptSnippet: "Clear the todo list widget and persisted state",
+      "Clear the current todo list, remove the widget, and delete the project-local state file. Only use this when the user explicitly asks to clear the list.",
+    promptSnippet: "Clear the todo list widget and persisted state when the user asks",
     promptGuidelines: [
-      "Use ClearTodoList when the plan is finished or you want to start over.",
+      "Only call ClearTodoList when the user explicitly asks to clear the todo list.",
+      "Do not call ClearTodoList automatically when a plan finishes, when switching contexts, or when the user leaves and returns.",
       "Set confirm: true to confirm deletion of persisted state.",
     ],
     parameters: {

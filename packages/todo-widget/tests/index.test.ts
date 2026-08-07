@@ -84,6 +84,30 @@ const sampleMarkdown = (group: string): string => `# Project
 - [ ] Two
 `;
 
+test("LoadTodoList returns error for invalid markdown", async () => {
+  const dir = tempDir();
+  try {
+    await withCwd(dir, async () => {
+      const mock = createMockApi();
+      todoWidget(mock.api);
+
+      const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+      const result = (await mock.tools.LoadTodoList(
+        "call-1",
+        { markdown: "# Title\n\nNo groups here\n" },
+        undefined,
+        undefined,
+        ctx,
+      )) as { content: { text: string }[]; details: { error: string } };
+
+      assert.equal(result.details.error, "parse_failed");
+      assert.ok(result.content[0].text.includes("No task groups found"));
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("LoadTodoList parses markdown and sets widget", async () => {
   const dir = tempDir();
   try {

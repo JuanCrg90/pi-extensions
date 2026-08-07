@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import type { Static } from "@sinclair/typebox";
-import { parseTodoList } from "./parser.js";
+import { parseTodoList, ParseError } from "./parser.js";
 import type { TaskState, WidgetState } from "./types.js";
 import {
   buildWidgetState,
@@ -78,7 +78,17 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       _onUpdate,
       ctx: ExtensionContext,
     ) {
-      const parsed = parseTodoList(params.markdown);
+      let parsed;
+      try {
+        parsed = parseTodoList(params.markdown);
+      } catch (err) {
+        const message = err instanceof ParseError ? err.message : "Failed to parse markdown task list.";
+        return {
+          content: [{ type: "text", text: message }],
+          details: { error: "parse_failed", message },
+        };
+      }
+
       const widgetState = buildWidgetState(projectPath, parsed);
 
       state.widgetState = widgetState;

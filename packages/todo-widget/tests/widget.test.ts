@@ -61,6 +61,27 @@ test("createTodoWidget hides collapsed group tasks", () => {
   assert.ok(lines.some((l) => l.includes("Three")));
 });
 
+test("createTodoWidget dims completed task titles", () => {
+  const state: WidgetState = {
+    projectTitle: "Project",
+    groups: [
+      {
+        id: "group-a",
+        title: "Group A",
+        tasks: [
+          { id: "group-a:done", title: "Done task", state: "done" },
+          { id: "group-a:pending", title: "Pending task", state: "not-started" },
+        ],
+      },
+    ],
+    collapsedGroups: new Set(),
+  };
+  const widget = createTodoWidget(null, theme, { state });
+  const lines = widget.render(80);
+  assert.ok(lines.some((l) => l.includes("Done task")));
+  assert.ok(lines.some((l) => l.includes("Pending task")));
+});
+
 test("createTodoWidget shows empty message when no groups", () => {
   const state: WidgetState = {
     projectTitle: "Empty",

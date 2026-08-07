@@ -74,7 +74,8 @@ export function createTodoWidget(
       for (const task of group.tasks) {
         const sym = stateSymbol(task.state, theme);
         const label = stateLabel(task.state);
-        const line = `    ${sym} ${task.title} ${theme.fg("dim", `(${label})`)}`;
+        const titleText = task.state === "done" ? theme.fg("dim", task.title) : task.title;
+        const line = `    ${sym} ${titleText} ${theme.fg("dim", `(${label})`)}`;
         container.addChild(new Text(line, 1, 0));
       }
     }

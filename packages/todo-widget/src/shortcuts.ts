@@ -5,12 +5,11 @@ import type { TodoState } from "./tools.js";
 
 export interface ShortcutDeps {
   state: TodoState;
-  projectPath: string;
   refreshWidget: (ctx: ExtensionContext) => void;
 }
 
 export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
-  const { state, projectPath, refreshWidget } = deps;
+  const { state, refreshWidget } = deps;
 
   pi.registerShortcut("ctrl+shift+l", {
     description: "Toggle todo widget visibility",
@@ -25,7 +24,7 @@ export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
     description: "Expand all todo groups",
     handler: async (ctx) => {
       if (!state.widgetState) return;
-      const updated = setCollapsedGroups(projectPath, state.widgetState, new Set());
+      const updated = setCollapsedGroups(ctx.cwd, state.widgetState, new Set());
       state.widgetState = updated;
       refreshWidget(ctx);
     },
@@ -36,7 +35,7 @@ export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
     handler: async (ctx) => {
       if (!state.widgetState) return;
       const allGroupIds = new Set(state.widgetState.groups.map((g) => g.id));
-      const updated = setCollapsedGroups(projectPath, state.widgetState, allGroupIds);
+      const updated = setCollapsedGroups(ctx.cwd, state.widgetState, allGroupIds);
       state.widgetState = updated;
       refreshWidget(ctx);
     },
@@ -52,7 +51,7 @@ export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
       } else {
         collapsed.add(state.focusedGroupId);
       }
-      const updated = setCollapsedGroups(projectPath, state.widgetState, collapsed);
+      const updated = setCollapsedGroups(ctx.cwd, state.widgetState, collapsed);
       state.widgetState = updated;
       refreshWidget(ctx);
     },
@@ -95,7 +94,7 @@ export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
     description: "Expand all todo groups",
     handler: async (_args, ctx) => {
       if (!state.widgetState) return;
-      const updated = setCollapsedGroups(projectPath, state.widgetState, new Set());
+      const updated = setCollapsedGroups(ctx.cwd, state.widgetState, new Set());
       state.widgetState = updated;
       refreshWidget(ctx);
     },
@@ -106,7 +105,7 @@ export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
     handler: async (_args, ctx) => {
       if (!state.widgetState) return;
       const allGroupIds = new Set(state.widgetState.groups.map((g) => g.id));
-      const updated = setCollapsedGroups(projectPath, state.widgetState, allGroupIds);
+      const updated = setCollapsedGroups(ctx.cwd, state.widgetState, allGroupIds);
       state.widgetState = updated;
       refreshWidget(ctx);
     },

@@ -17,12 +17,25 @@ export interface ParsedTodoList {
   groups: TaskGroup[];
 }
 
+export interface PersistedTask {
+  id: string;
+  title: string;
+  state: TaskState;
+}
+
+export interface PersistedGroup {
+  id: string;
+  title: string;
+  tasks: PersistedTask[];
+}
+
 export interface PersistedTaskState {
   state: TaskState;
 }
 
 export interface PersistedState {
   projectTitle?: string;
+  groups?: PersistedGroup[];
   tasks?: Record<string, PersistedTaskState>;
   collapsedGroups?: string[];
 }

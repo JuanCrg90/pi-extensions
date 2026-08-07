@@ -51,12 +51,11 @@ export interface TodoState {
 
 export interface ToolDeps {
   state: TodoState;
-  projectPath: string;
   refreshWidget: (ctx: ExtensionContext) => void;
 }
 
 export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
-  const { state, projectPath, refreshWidget } = deps;
+  const { state, refreshWidget } = deps;
 
   pi.registerTool({
     name: "LoadTodoList",
@@ -89,12 +88,12 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
         };
       }
 
-      const widgetState = buildWidgetState(projectPath, parsed);
+      const widgetState = buildWidgetState(ctx.cwd, parsed);
 
       state.widgetState = widgetState;
       state.focusedGroupId = widgetState.groups[0]?.id;
       state.widgetVisible = true;
-      saveWidgetState(projectPath, widgetState);
+      saveWidgetState(ctx.cwd, widgetState);
 
       refreshWidget(ctx);
 
@@ -163,7 +162,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
         };
       }
 
-      const updated = updateTaskState(projectPath, state.widgetState, params.taskId, params.state);
+      const updated = updateTaskState(ctx.cwd, state.widgetState, params.taskId, params.state);
       state.widgetState = updated;
       refreshWidget(ctx);
 
@@ -263,7 +262,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       state.widgetState = null;
       state.focusedGroupId = undefined;
       state.widgetVisible = false;
-      deleteState(projectPath);
+      deleteState(ctx.cwd);
 
       if (ctx.mode === "tui") {
         ctx.ui.setWidget("todo-widget", []);

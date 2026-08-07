@@ -6,8 +6,7 @@ import type {
 import { createTodoWidget } from "./widget.js";
 import { registerTools, type TodoState } from "./tools.js";
 import { registerShortcuts } from "./shortcuts.js";
-
-const currentProjectPath = (): string => process.cwd();
+import { restoreWidgetState } from "./state.js";
 
 const isTui = (ctx: ExtensionContext): boolean => ctx.mode === "tui";
 
@@ -17,8 +16,6 @@ export default function todoWidget(pi: ExtensionAPI): void {
     focusedGroupId: undefined,
     widgetVisible: true,
   };
-
-  const projectPath = currentProjectPath();
 
   const refreshWidget = (ctx: ExtensionContext): void => {
     if (!isTui(ctx)) {
@@ -47,19 +44,17 @@ export default function todoWidget(pi: ExtensionAPI): void {
 
   registerTools(pi, {
     state,
-    projectPath,
     refreshWidget,
   });
 
   registerShortcuts(pi, {
     state,
-    projectPath,
     refreshWidget,
   });
 
   pi.on("session_start", (_event, ctx) => {
-    state.widgetState = null;
-    state.focusedGroupId = undefined;
+    state.widgetState = restoreWidgetState(ctx.cwd);
+    state.focusedGroupId = state.widgetState?.groups[0]?.id;
     state.widgetVisible = true;
     refreshWidget(ctx);
   });

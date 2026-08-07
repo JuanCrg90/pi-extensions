@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync, unlinkSync } from "node:fs";
 import { join, dirname } from "node:path";
-import type { PersistedState, ParsedTodoList, TaskState, WidgetState } from "./types.js";
+import type { PersistedState, ParsedTodoList, TaskState, WidgetState, TaskGroup, Task } from "./types.js";
 import { withIds } from "./ids.js";
 
 const STATE_DIR = ".pi";
@@ -45,17 +45,59 @@ export function deleteState(projectPath: string): void {
   }
 }
 
+function taskRecordFromGroups(groups: TaskGroup[]): Record<string, { state: TaskState }> {
+  const tasks: Record<string, { state: TaskState }> = {};
+  for (const group of groups) {
+    for (const task of group.tasks) {
+      tasks[task.id] = { state: task.state };
+    }
+  }
+  return tasks;
+}
+
+function persistedGroupsFromWidget(groups: TaskGroup[]): PersistedState["groups"] {
+  return groups.map((group) => ({
+    id: group.id,
+    title: group.title,
+    tasks: group.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      state: task.state,
+    })),
+  }));
+}
+
 export function saveWidgetState(projectPath: string, widgetState: WidgetState): void {
   saveState(projectPath, {
     projectTitle: widgetState.projectTitle,
-    tasks: widgetState.groups.reduce((acc, group) => {
-      for (const task of group.tasks) {
-        acc[task.id] = { state: task.state };
-      }
-      return acc;
-    }, {} as Record<string, { state: TaskState }>),
+    groups: persistedGroupsFromWidget(widgetState.groups),
+    tasks: taskRecordFromGroups(widgetState.groups),
     collapsedGroups: [...widgetState.collapsedGroups],
   });
+}
+
+function restoreWidgetState(projectPath: string): WidgetState | null {
+  const persisted = loadState(projectPath);
+  if (!persisted.groups || persisted.groups.length === 0) {
+    return null;
+  }
+
+  const collapsedGroups = new Set(persisted.collapsedGroups ?? []);
+  const groups: TaskGroup[] = persisted.groups.map((group) => ({
+    id: group.id,
+    title: group.title,
+    tasks: group.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      state: (persisted.tasks?.[task.id]?.state ?? task.state) as TaskState,
+    })),
+  }));
+
+  return {
+    projectTitle: persisted.projectTitle ?? "Tasks",
+    groups,
+    collapsedGroups,
+  };
 }
 
 export function buildWidgetState(
@@ -65,8 +107,9 @@ export function buildWidgetState(
   const withIdsList = withIds(parsed);
   const persisted = loadState(projectPath);
 
-  const taskOverrides = persisted.tasks ?? {};
-  const collapsedGroups = new Set(persisted.collapsedGroups ?? []);
+  // If the persisted list is for a different project title, discard its task state.
+  const persistedTitleMatches = persisted.projectTitle === parsed.projectTitle;
+  const taskOverrides = persistedTitleMatches ? (persisted.tasks ?? {}) : {};
 
   const groups = withIdsList.groups.map((group) => ({
     ...group,
@@ -76,22 +119,21 @@ export function buildWidgetState(
     })),
   }));
 
-  const groupIds = groups.map((g) => g.id);
-  const activeCollapsed = new Set(
-    [...collapsedGroups].filter((id) => groupIds.includes(id)),
+  const collapsedGroups = new Set(
+    persistedTitleMatches ? (persisted.collapsedGroups ?? []) : [],
   );
 
   for (const group of groups) {
     const allDone = group.tasks.length > 0 && group.tasks.every((t) => t.state === "done");
     if (allDone) {
-      activeCollapsed.add(group.id);
+      collapsedGroups.add(group.id);
     }
   }
 
   return {
     projectTitle: parsed.projectTitle,
     groups,
-    collapsedGroups: activeCollapsed,
+    collapsedGroups,
   };
 }
 
@@ -101,15 +143,6 @@ export function updateTaskState(
   taskId: string,
   state: TaskState,
 ): WidgetState {
-  const persisted = loadState(projectPath);
-  const tasks = { ...(persisted.tasks ?? {}) };
-  tasks[taskId] = { state };
-  saveState(projectPath, {
-    projectTitle: widgetState.projectTitle,
-    tasks,
-    collapsedGroups: [...widgetState.collapsedGroups],
-  });
-
   const groups = widgetState.groups.map((group) => ({
     ...group,
     tasks: group.tasks.map((task) =>
@@ -125,7 +158,9 @@ export function updateTaskState(
     }
   }
 
-  return { ...widgetState, groups, collapsedGroups };
+  const updated: WidgetState = { ...widgetState, groups, collapsedGroups };
+  saveWidgetState(projectPath, updated);
+  return updated;
 }
 
 export function setCollapsedGroups(
@@ -133,11 +168,9 @@ export function setCollapsedGroups(
   widgetState: WidgetState,
   collapsedGroups: Set<string>,
 ): WidgetState {
-  const persisted = loadState(projectPath);
-  saveState(projectPath, {
-    projectTitle: widgetState.projectTitle,
-    tasks: persisted.tasks,
-    collapsedGroups: [...collapsedGroups],
-  });
-  return { ...widgetState, collapsedGroups };
+  const updated: WidgetState = { ...widgetState, collapsedGroups };
+  saveWidgetState(projectPath, updated);
+  return updated;
 }
+
+export { restoreWidgetState };

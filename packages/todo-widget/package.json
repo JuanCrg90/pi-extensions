@@ -34,14 +34,20 @@
   "engines": {
     "pi": ">=0.1.0"
   },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.0"
+  },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "tsx": "^4.23.0"
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.5.0"
   },
   "files": [
     "index.ts",

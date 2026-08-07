@@ -1,4 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Type } from "@sinclair/typebox";
+import type { Static } from "@sinclair/typebox";
 import { parseTodoList } from "./parser.js";
 import type { TaskState, WidgetState } from "./types.js";
 import {
@@ -7,19 +9,15 @@ import {
   deleteState,
   saveWidgetState,
 } from "./state.js";
+import {
+  LoadTodoListParameters,
+  UpdateTodoTaskParameters,
+  ClearTodoListParameters,
+} from "./schema.js";
 
-interface LoadTodoListParams {
-  markdown: string;
-}
-
-interface UpdateTodoTaskParams {
-  taskId: string;
-  state: TaskState;
-}
-
-interface ClearTodoListParams {
-  confirm: boolean;
-}
+type LoadTodoListParams = Static<typeof LoadTodoListParameters>;
+type UpdateTodoTaskParams = Static<typeof UpdateTodoTaskParameters>;
+type ClearTodoListParams = Static<typeof ClearTodoListParameters>;
 
 interface TaskSummary {
   id: string;
@@ -71,16 +69,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       "Markdown format: first # heading is the project title, second-level ## headings are task groups, and - [ ] / - [/] / - [x] are tasks.",
       "The widget appears in the TUI and persists state in the project-local .pi/todo-widget-state.json.",
     ],
-    parameters: {
-      type: "object",
-      required: ["markdown"],
-      properties: {
-        markdown: {
-          type: "string",
-          description: "Markdown content containing the task list.",
-        },
-      },
-    },
+    parameters: LoadTodoListParameters,
 
     async execute(
       _toolCallId: string,
@@ -128,21 +117,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       "taskId must be a stable ID from the todo widget. Use the tasks list returned by LoadTodoList or ListTodoTasks to get exact IDs.",
       "State changes persist to the project-local state file and refresh the widget.",
     ],
-    parameters: {
-      type: "object",
-      required: ["taskId", "state"],
-      properties: {
-        taskId: {
-          type: "string",
-          description: "Stable task ID from the todo widget.",
-        },
-        state: {
-          type: "string",
-          enum: ["not-started", "in-progress", "done"],
-          description: "New task state.",
-        },
-      },
-    },
+    parameters: UpdateTodoTaskParameters,
 
     async execute(
       _toolCallId: string,
@@ -204,11 +179,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       "Use ListTodoTasks when you need the exact taskId for UpdateTodoTask.",
       "Returns groups, tasks, and current states without modifying anything.",
     ],
-    parameters: {
-      type: "object",
-      required: [],
-      properties: {},
-    },
+    parameters: Type.Object({}, { additionalProperties: false }),
 
     async execute(
       _toolCallId: string,
@@ -258,16 +229,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       "Do not call ClearTodoList automatically when a plan finishes, when switching contexts, or when the user leaves and returns.",
       "Set confirm: true to confirm deletion of persisted state.",
     ],
-    parameters: {
-      type: "object",
-      required: ["confirm"],
-      properties: {
-        confirm: {
-          type: "boolean",
-          description: "Must be true to clear the list and delete state.",
-        },
-      },
-    },
+    parameters: ClearTodoListParameters,
 
     async execute(
       _toolCallId: string,

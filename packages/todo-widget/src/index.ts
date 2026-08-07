@@ -4,7 +4,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 
 import { createTodoWidget } from "./widget.js";
-import { registerTools } from "./tools.js";
+import { registerTools, type TodoState } from "./tools.js";
 import { registerShortcuts } from "./shortcuts.js";
 
 const currentProjectPath = (): string => process.cwd();
@@ -12,7 +12,7 @@ const currentProjectPath = (): string => process.cwd();
 const isTui = (ctx: ExtensionContext): boolean => ctx.mode === "tui";
 
 export default function todoWidget(pi: ExtensionAPI): void {
-  const state = {
+  const state: TodoState = {
     widgetState: null,
     focusedGroupId: undefined,
     widgetVisible: true,
@@ -30,6 +30,7 @@ export default function todoWidget(pi: ExtensionAPI): void {
       return;
     }
 
+    const widgetState = state.widgetState;
     ctx.ui.setWidget(
       "todo-widget",
       (tui, theme) =>
@@ -37,7 +38,7 @@ export default function todoWidget(pi: ExtensionAPI): void {
           tui,
           theme as { fg: (c: string, s: string) => string; bold: (s: string) => string },
           {
-            state: state.widgetState,
+            state: widgetState,
             focusedGroupId: state.focusedGroupId,
           },
         ),

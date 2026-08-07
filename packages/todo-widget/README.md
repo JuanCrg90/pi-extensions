@@ -38,7 +38,7 @@ The agent loads a markdown checklist with the `LoadTodoList` tool, then updates 
 
 ### Task IDs
 
-Task IDs are stable and derived from the markdown text: `<group-slug>:<item-slug>`. For example, a task under `## Task 1: Setup` with item `- [ ] Confirm env` gets ID `task-1-setup:confirm-env`. The `LoadTodoList` and `ListTodoTasks` tools return the exact IDs for each task.
+Task IDs are stable and derived from the markdown text: `<group-slug>:<item-slug>`. For example, a task under `## Task 1: Setup` with item `- [ ] Confirm env` gets ID `task-1-setup:confirm-env`. The `LoadTodoList` and `ListTodoTasks` tools return the exact IDs for each task. Use those exact IDs in `UpdateTodoTask`; passing an unknown ID returns an error.
 
 ### Tools
 
@@ -65,13 +65,14 @@ Task IDs are stable and derived from the markdown text: `<group-slug>:<item-slug
 
 ## Persistence
 
-State is saved in `.pi/todo-widget-state.json` inside the current project. Task states and collapsed groups are restored when the list is reloaded.
+State is saved in `.pi/todo-widget-state.json` inside the current project. Group and task titles, task states, and collapsed groups are restored automatically when pi starts a session in the same project. Loading a markdown list with a different `#` project title resets persisted task state so progress from an unrelated plan does not leak across lists.
 
 ## Development
 
 ```bash
 pnpm install
 pnpm --filter @juancrg90/todo-widget test
+pnpm --filter @juancrg90/todo-widget typecheck
 ```
 
 ## License

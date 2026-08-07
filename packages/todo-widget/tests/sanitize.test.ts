@@ -31,3 +31,14 @@ test("sanitizeDisplayText keeps tabs and newlines", () => {
 test("sanitizeDisplayText trims whitespace", () => {
   assert.equal(sanitizeDisplayText("  text  "), "text");
 });
+
+test("sanitizeDisplayText strips multiple escape sequences", () => {
+  assert.equal(
+    sanitizeDisplayText("\x1b[31m\x1b]52;c;cGF5bG9hZA==\x07Red\x1b[0m"),
+    "Red",
+  );
+});
+
+test("sanitizeDisplayText strips malformed unterminated escape", () => {
+  assert.equal(sanitizeDisplayText("text\x1b[31"), "text");
+});

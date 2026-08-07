@@ -4,23 +4,35 @@
  * generation to prevent ANSI/OSC injection.
  */
 
-// ANSI escape sequences: ESC [ ... (final byte 0x40-0x7E)
-const ANSI_RE = /\x1b\[[0-?]*[ -/]*[@-~]/g;
+// ANSI CSI sequences: ESC [ ... final byte 0x40-0x7E
+const ANSI_CSI_RE = /\x1b\[[\x20-\x3f]*[\x30-\x3f]*[\x40-\x7e]/g;
+
+// Unterminated ANSI CSI sequences: ESC [ followed by non-final bytes to end
+const ANSI_CSI_UNTERMINATED_RE = /\x1b\[[\x20-\x3f]*[\x30-\x3f]*$/g;
 
 // OSC sequences: ESC ] ... BEL or ESC ] ... ESC \
 const OSC_RE = /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g;
 
+// Unterminated OSC sequences: ESC ] to end of string
+const OSC_UNTERMINATED_RE = /\x1b\][^\x07\x1b]*$/g;
+
 // Other ESC-initiated sequences (not covered above)
-const OTHER_ESC_RE = /\x1b[^[\]]/g;
+const OTHER_ESC_RE = /\x1b[^[\]\x00-\x1f\x7f]/g;
+
+// Unterminated other ESC: bare ESC at end of string
+const BARE_ESC_RE = /\x1b$/g;
 
 // C0 control characters to remove (keep tab and newline for markdown parsing)
 const CONTROL_RE = /[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]/g;
 
 export function sanitizeDisplayText(text: string): string {
   return text
-    .replace(ANSI_RE, "")
+    .replace(ANSI_CSI_RE, "")
+    .replace(ANSI_CSI_UNTERMINATED_RE, "")
     .replace(OSC_RE, "")
+    .replace(OSC_UNTERMINATED_RE, "")
     .replace(OTHER_ESC_RE, "")
+    .replace(BARE_ESC_RE, "")
     .replace(CONTROL_RE, "")
     .trim();
 }

@@ -448,6 +448,44 @@ test("session_start restores persisted widget state", async () => {
   }
 });
 
+test("LoadTodoList sanitizes escape sequences before generating IDs", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    const result = (await mock.tools.LoadTodoList(
+      "call-1",
+      {
+        markdown: `# \x1b[31mProject\x1b[0m
+
+## \x1b]52;c;cGF5bG9hZA==\x07 Group
+
+- [ ] \x1b[31mRed\x1b[0m Task
+`,
+      },
+      undefined,
+      undefined,
+      ctx,
+    )) as { details: { tasks: { id: string; title: string }[]; projectTitle: string } };
+
+    assert.equal(result.details.projectTitle, "Project");
+    assert.equal(result.details.tasks[0].title, "Red Task");
+    assert.ok(!result.details.tasks[0].id.includes("\x1b"));
+    assert.ok(!result.details.tasks[0].id.includes("\x07"));
+    assert.equal(result.details.tasks[0].id, "group:red-task");
+
+    const persisted = JSON.parse(readFileSync(join(dir, ".pi", "todo-widget-state.json"), "utf-8"));
+    assert.equal(persisted.projectTitle, "Project");
+    assert.equal(persisted.groups[0].title, "Group");
+    assert.equal(persisted.groups[0].tasks[0].title, "Red Task");
+    assert.ok(!Object.keys(persisted.tasks)[0].includes("\x1b"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("loading a different project title resets persisted task state", async () => {
   const dir = tempDir();
   try {

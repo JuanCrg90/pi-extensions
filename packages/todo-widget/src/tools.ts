@@ -64,9 +64,10 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       "Load a markdown task list into the persistent todo widget. Groups are second-level headings (##), tasks are list items with markers: - [ ] not-started, - [/] in-progress, - [x] done.",
     promptSnippet: "Load a markdown task list into the todo widget",
     promptGuidelines: [
-      "Use LoadTodoList when starting a new plan or refreshing the current task list.",
+      "Call LoadTodoList when starting a new plan or refreshing the current task list.",
       "Markdown format: first # heading is the project title, second-level ## headings are task groups, and - [ ] / - [/] / - [x] are tasks.",
-      "The widget appears in the TUI and persists state in the project-local .pi/todo-widget-state.json.",
+      "LoadTodoList returns the exact task IDs that UpdateTodoTask requires — keep them for later updates.",
+      "The widget appears in the TUI and persists state in the project-local .pi/todo-widget-state.json. Keep it in sync: call UpdateTodoTask whenever a task's state changes.",
     ],
     parameters: LoadTodoListParameters,
 
@@ -122,8 +123,9 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       "Update the state of a single task in the todo widget. State can be not-started, in-progress, or done.",
     promptSnippet: "Mark a todo task as not-started, in-progress, or done",
     promptGuidelines: [
-      "Use UpdateTodoTask when the agent completes or starts a task.",
+      "After you complete, start, or pause any todo task, you MUST call UpdateTodoTask to reflect it — the todo widget is the source of truth for task state.",
       "taskId must be a stable ID from the todo widget. Use the tasks list returned by LoadTodoList or ListTodoTasks to get exact IDs.",
+      "Mark completed tasks with state \"done\", ongoing work with \"in-progress\", and untouched work \"not-started\".",
       "State changes persist to the project-local state file and refresh the widget.",
     ],
     parameters: UpdateTodoTaskParameters,
@@ -185,7 +187,8 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       "Return the current todo list with group and task IDs, titles, and states. Use this to get exact taskIds for UpdateTodoTask.",
     promptSnippet: "List the current todo tasks with their IDs",
     promptGuidelines: [
-      "Use ListTodoTasks when you need the exact taskId for UpdateTodoTask.",
+      "Call ListTodoTasks whenever you need exact taskIds or current states for UpdateTodoTask.",
+      "Before finishing a task or summarizing progress, call ListTodoTasks and update every completed task with UpdateTodoTask.",
       "Returns groups, tasks, and current states without modifying anything.",
     ],
     parameters: Type.Object({}, { additionalProperties: false }),

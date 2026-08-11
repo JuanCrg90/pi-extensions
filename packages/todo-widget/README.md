@@ -67,6 +67,16 @@ Task IDs are stable and derived from the markdown text: `<group-slug>:<item-slug
 
 State is saved in `.pi/todo-widget-state.json` inside the current project. Group and task titles, task states, and collapsed groups are restored automatically when pi starts a session in the same project. Loading a markdown list with a different `#` project title resets persisted task state so progress from an unrelated plan does not leak across lists.
 
+## Keeping the widget in sync
+
+The widget is TUI-only, so agents can forget to update it. This extension enforces sync on three layers:
+
+1. **Status in context** — while a list is loaded, a compact `[TodoWidget]` block with pending/in-progress tasks and their exact IDs is injected into every LLM call. The model always sees what is left and what IDs to use.
+2. **Completion nudge** — when an agent run settles with unfinished tasks, a work tool was used, the final message sounds complete, and no `UpdateTodoTask` was called, the extension injects a follow-up message that forces a reconciliation turn (`ListTodoTasks` + `UpdateTodoTask`). Loop-guarded: follow-up runs are never re-nudged, and runs that already updated the widget are skipped.
+3. **Prompt guidelines** — `UpdateTodoTask`, `LoadTodoList`, and `ListTodoTasks` carry imperative guidelines that name each tool explicitly.
+
+The nudge can be disabled with the `TODO_WIDGET_NO_NUDGE=1` environment variable; the status-in-context layer stays on.
+
 ## Development
 
 ```bash

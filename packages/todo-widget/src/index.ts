@@ -5,6 +5,7 @@ import type {
 
 import { createTodoWidget } from "./widget.js";
 import { registerTools, type TodoState } from "./tools.js";
+import { registerEnforcement } from "./enforce.js";
 import { registerShortcuts } from "./shortcuts.js";
 import { restoreWidgetState } from "./state.js";
 
@@ -46,6 +47,8 @@ export default function todoWidget(pi: ExtensionAPI): void {
     state,
     refreshWidget,
   });
+
+  registerEnforcement(pi, { state });
 
   registerShortcuts(pi, {
     state,

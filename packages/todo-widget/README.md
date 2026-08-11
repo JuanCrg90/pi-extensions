@@ -63,6 +63,12 @@ Task IDs are stable and derived from the markdown text: `<group-slug>:<item-slug
 - `/expand-todo-groups`
 - `/collapse-todo-groups`
 
+### Known limitation: no mouse support
+
+Clicking a group header to expand/collapse is not supported. Pi does not currently dispatch mouse events to extensions or widgets: the TUI's viewport layer consumes all mouse input for scrolling, text selection, and scrollbar drags, and extension input listeners never see mouse sequences. Widget components only receive keyboard input. This is tracked upstream as [earendil-works/pi#7683](https://github.com/earendil-works/pi/issues/7683); once pi exposes mouse events to components, the widget can be wired for click-to-toggle.
+
+Until then, use the keyboard shortcuts or slash commands above.
+
 ## Persistence
 
 State is saved in `.pi/todo-widget-state.json` inside the current project. Group and task titles, task states, and collapsed groups are restored automatically when pi starts a session in the same project. Loading a markdown list with a different `#` project title resets persisted task state so progress from an unrelated plan does not leak across lists.

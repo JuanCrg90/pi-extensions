@@ -7,7 +7,7 @@ import { createTodoWidget } from "./widget.js";
 import { registerTools, type TodoState } from "./tools.js";
 import { registerEnforcement } from "./enforce.js";
 import { registerShortcuts } from "./shortcuts.js";
-import { restoreWidgetState } from "./state.js";
+import { restoreWidgetState, setCollapsedGroups } from "./state.js";
 
 const isTui = (ctx: ExtensionContext): boolean => ctx.mode === "tui";
 
@@ -38,6 +38,25 @@ export default function todoWidget(pi: ExtensionAPI): void {
           {
             state: widgetState,
             focusedGroupId: state.focusedGroupId,
+            onFocusGroup: (groupId: string) => {
+              state.focusedGroupId = groupId;
+              refreshWidget(ctx);
+            },
+            onToggleGroup: (groupId: string) => {
+              if (!state.widgetState) return;
+              const collapsed = new Set(state.widgetState.collapsedGroups);
+              if (collapsed.has(groupId)) {
+                collapsed.delete(groupId);
+              } else {
+                collapsed.add(groupId);
+              }
+              state.widgetState = setCollapsedGroups(
+                ctx.cwd,
+                state.widgetState,
+                collapsed,
+              );
+              refreshWidget(ctx);
+            },
           },
         ),
     );

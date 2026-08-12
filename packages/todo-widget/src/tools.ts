@@ -1,4 +1,8 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  AgentToolUpdateCallback,
+} from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import type { Static } from "@sinclair/typebox";
 import { parseTodoList, ParseError } from "./parser.js";
@@ -49,7 +53,7 @@ export interface TodoState {
   widgetVisible: boolean;
 }
 
-export interface ToolDeps {
+interface ToolDeps {
   state: TodoState;
   refreshWidget: (ctx: ExtensionContext) => void;
 }
@@ -75,7 +79,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       _toolCallId: string,
       params: LoadTodoListParams,
       _signal: AbortSignal | undefined,
-      _onUpdate,
+      _onUpdate: AgentToolUpdateCallback<unknown> | undefined,
       ctx: ExtensionContext,
     ) {
       let parsed;
@@ -134,7 +138,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       _toolCallId: string,
       params: UpdateTodoTaskParams,
       _signal: AbortSignal | undefined,
-      _onUpdate,
+      _onUpdate: AgentToolUpdateCallback<unknown> | undefined,
       ctx: ExtensionContext,
     ) {
       if (!state.widgetState) {
@@ -197,7 +201,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       _toolCallId: string,
       _params: Record<string, never>,
       _signal: AbortSignal | undefined,
-      _onUpdate,
+      _onUpdate: AgentToolUpdateCallback<unknown> | undefined,
       _ctx: ExtensionContext,
     ) {
       if (!state.widgetState) {
@@ -247,7 +251,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       _toolCallId: string,
       params: ClearTodoListParams,
       _signal: AbortSignal | undefined,
-      _onUpdate,
+      _onUpdate: AgentToolUpdateCallback<unknown> | undefined,
       ctx: ExtensionContext,
     ) {
       if (!params.confirm) {
@@ -267,9 +271,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       state.widgetVisible = false;
       deleteState(ctx.cwd);
 
-      if (ctx.mode === "tui") {
-        ctx.ui.setWidget("todo-widget", []);
-      }
+      refreshWidget(ctx);
 
       return {
         content: [

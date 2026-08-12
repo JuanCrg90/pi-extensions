@@ -3,7 +3,7 @@ import { setCollapsedGroups } from "./state.js";
 import { findNextGroupId, findPreviousGroupId } from "./widget.js";
 import type { TodoState } from "./tools.js";
 
-export interface ShortcutDeps {
+interface ShortcutDeps {
   state: TodoState;
   refreshWidget: (ctx: ExtensionContext) => void;
 }
@@ -11,34 +11,40 @@ export interface ShortcutDeps {
 export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
   const { state, refreshWidget } = deps;
 
+  const toggleVisibility = async (ctx: ExtensionContext): Promise<void> => {
+    state.widgetVisible = !state.widgetVisible;
+    refreshWidget(ctx);
+    ctx.ui.notify(`Todo widget ${state.widgetVisible ? "on" : "off"}`, "info");
+  };
+
+  const expandAll = async (ctx: ExtensionContext): Promise<void> => {
+    if (!state.widgetState) return;
+    const updated = setCollapsedGroups(ctx.cwd, state.widgetState, new Set());
+    state.widgetState = updated;
+    refreshWidget(ctx);
+  };
+
+  const collapseAll = async (ctx: ExtensionContext): Promise<void> => {
+    if (!state.widgetState) return;
+    const allGroupIds = new Set(state.widgetState.groups.map((g) => g.id));
+    const updated = setCollapsedGroups(ctx.cwd, state.widgetState, allGroupIds);
+    state.widgetState = updated;
+    refreshWidget(ctx);
+  };
+
   pi.registerShortcut("ctrl+shift+l", {
     description: "Toggle todo widget visibility",
-    handler: async (ctx) => {
-      state.widgetVisible = !state.widgetVisible;
-      refreshWidget(ctx);
-      ctx.ui.notify(`Todo widget ${state.widgetVisible ? "on" : "off"}`, "info");
-    },
+    handler: toggleVisibility,
   });
 
   pi.registerShortcut("ctrl+shift+o", {
     description: "Expand all todo groups",
-    handler: async (ctx) => {
-      if (!state.widgetState) return;
-      const updated = setCollapsedGroups(ctx.cwd, state.widgetState, new Set());
-      state.widgetState = updated;
-      refreshWidget(ctx);
-    },
+    handler: expandAll,
   });
 
   pi.registerShortcut("ctrl+shift+c", {
     description: "Collapse all todo groups",
-    handler: async (ctx) => {
-      if (!state.widgetState) return;
-      const allGroupIds = new Set(state.widgetState.groups.map((g) => g.id));
-      const updated = setCollapsedGroups(ctx.cwd, state.widgetState, allGroupIds);
-      state.widgetState = updated;
-      refreshWidget(ctx);
-    },
+    handler: collapseAll,
   });
 
   pi.registerShortcut("ctrl+shift+return", {
@@ -84,30 +90,21 @@ export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
   pi.registerCommand("toggle-todo-widget", {
     description: "Toggle todo widget visibility",
     handler: async (_args, ctx) => {
-      state.widgetVisible = !state.widgetVisible;
-      refreshWidget(ctx);
-      ctx.ui.notify(`Todo widget ${state.widgetVisible ? "on" : "off"}`, "info");
+      await toggleVisibility(ctx);
     },
   });
 
   pi.registerCommand("expand-todo-groups", {
     description: "Expand all todo groups",
     handler: async (_args, ctx) => {
-      if (!state.widgetState) return;
-      const updated = setCollapsedGroups(ctx.cwd, state.widgetState, new Set());
-      state.widgetState = updated;
-      refreshWidget(ctx);
+      await expandAll(ctx);
     },
   });
 
   pi.registerCommand("collapse-todo-groups", {
     description: "Collapse all todo groups",
     handler: async (_args, ctx) => {
-      if (!state.widgetState) return;
-      const allGroupIds = new Set(state.widgetState.groups.map((g) => g.id));
-      const updated = setCollapsedGroups(ctx.cwd, state.widgetState, allGroupIds);
-      state.widgetState = updated;
-      refreshWidget(ctx);
+      await collapseAll(ctx);
     },
   });
 }

@@ -106,3 +106,41 @@ test("findPreviousGroupId cycles backward", () => {
   assert.equal(findPreviousGroupId(groups, "group-b"), "group-a");
   assert.equal(findPreviousGroupId(groups, "group-a"), "group-b");
 });
+
+test("createTodoWidget toggles focused group on enter/space", () => {
+  const toggled: string[] = [];
+  const widget = createTodoWidget(null, theme, {
+    state: baseState,
+    focusedGroupId: "group-a",
+    onToggleGroup: (id) => toggled.push(id),
+  });
+  widget.handleInput!("\r");
+  widget.handleInput!(" ");
+  assert.deepEqual(toggled, ["group-a", "group-a"]);
+});
+
+test("createTodoWidget moves keyboard focus with up/down and j/k", () => {
+  const focused: string[] = [];
+  const widget = createTodoWidget(null, theme, {
+    state: baseState,
+    focusedGroupId: "group-a",
+    onFocusGroup: (id) => focused.push(id),
+  });
+  widget.handleInput!("\x1b[B"); // down
+  widget.handleInput!("k"); // up
+  assert.deepEqual(focused, ["group-b", "group-a"]);
+});
+
+test("createTodoWidget ignores input when nothing is focused", () => {
+  const toggled: string[] = [];
+  const focused: string[] = [];
+  const widget = createTodoWidget(null, theme, {
+    state: baseState,
+    onFocusGroup: (id) => focused.push(id),
+    onToggleGroup: (id) => toggled.push(id),
+  });
+  widget.handleInput!("\r");
+  widget.handleInput!(" ");
+  assert.deepEqual(toggled, []);
+  assert.deepEqual(focused, []);
+});

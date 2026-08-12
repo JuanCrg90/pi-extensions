@@ -55,12 +55,11 @@ const COMPLETION_SIGNAL_RE =
   /\b(done|complete[d]?|finish(ed|es)?|merged|shipped|landed|resolved|all tests? pass(ing)?|ready for review|wrapped up)\b/i;
 
 export function hasCompletionSignal(text: string): boolean {
-  if (!text) return false;
   return COMPLETION_SIGNAL_RE.test(text);
 }
 
-export interface NudgeInput {
-  widgetState: WidgetState | null;
+interface NudgeInput {
+  widgetState: WidgetState;
   updateTodoCalledThisRun: boolean;
   workToolRanThisRun: boolean;
   nudgeFollowupRun: boolean;
@@ -75,7 +74,6 @@ export interface NudgeInput {
  */
 export function shouldNudge(input: NudgeInput): boolean {
   const widgetState = input.widgetState;
-  if (!widgetState) return false;
   if (input.nudgeFollowupRun) return false;
   if (input.updateTodoCalledThisRun) return false;
   if (!input.workToolRanThisRun) return false;
@@ -104,7 +102,7 @@ export function buildNudgeMessage(widgetState: WidgetState): string {
 /** Read-only tools do not count as "work" for the completion nudge. */
 const READ_ONLY_TOOLS = new Set(["read", "grep", "ls", "find", "ListTodoTasks"]);
 
-export interface EnforcementDeps {
+interface EnforcementDeps {
   state: TodoState;
   /** Override the nudge; defaults to enabled unless TODO_WIDGET_NO_NUDGE=1. */
   nudgeEnabled?: boolean;

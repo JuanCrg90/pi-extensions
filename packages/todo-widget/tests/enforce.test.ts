@@ -100,7 +100,6 @@ test("shouldNudge requires all conditions", () => {
   };
   assert.equal(shouldNudge(base), true);
 
-  assert.equal(shouldNudge({ ...base, widgetState: null }), false);
   assert.equal(shouldNudge({ ...base, nudgeFollowupRun: true }), false);
   assert.equal(shouldNudge({ ...base, updateTodoCalledThisRun: true }), false);
   assert.equal(shouldNudge({ ...base, workToolRanThisRun: false }), false);

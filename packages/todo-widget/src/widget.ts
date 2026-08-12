@@ -1,4 +1,11 @@
-import { Container, Text, truncateToWidth, Component } from "@earendil-works/pi-tui";
+import {
+  Container,
+  Text,
+  truncateToWidth,
+  Component,
+  matchesKey,
+  Key,
+} from "@earendil-works/pi-tui";
 import type { WidgetState, TaskGroup } from "./types.js";
 
 const stateSymbol = (state: TaskGroup["tasks"][number]["state"], theme: ThemeColors): string => {
@@ -33,6 +40,8 @@ interface ThemeColors {
 interface WidgetRenderOptions {
   state: WidgetState;
   focusedGroupId?: string;
+  onFocusGroup?: (groupId: string) => void;
+  onToggleGroup?: (groupId: string) => void;
 }
 
 const borderColor = (theme: ThemeColors, s: string): string => theme.fg("borderAccent", s);
@@ -45,6 +54,8 @@ export function createTodoWidget(
   const container = new Container();
 
   const { state } = options;
+  // Keyboard focus for enter/space toggling, seeded from the global focus state.
+  let focusedId = options.focusedGroupId;
   const doneCount = state.groups.reduce(
     (acc, g) => acc + g.tasks.filter((t) => t.state === "done").length,
     0,
@@ -62,7 +73,7 @@ export function createTodoWidget(
     const groupDone = group.tasks.every((t) => t.state === "done");
     const groupCount = group.tasks.filter((t) => t.state === "done").length;
     const expanded = !state.collapsedGroups.has(group.id);
-    const isFocused = options.focusedGroupId === group.id;
+    const isFocused = focusedId === group.id;
 
     const groupPrefix = expanded ? "▼" : "▶";
     const groupLine = `${groupPrefix} ${group.title} (${groupCount}/${group.tasks.length})`;
@@ -75,7 +86,9 @@ export function createTodoWidget(
         const sym = stateSymbol(task.state, theme);
         const label = stateLabel(task.state);
         const titleText = task.state === "done" ? theme.fg("dim", task.title) : task.title;
-        const line = `    ${sym} ${titleText} ${theme.fg("dim", `(${label})`)}`;
+        const labelText =
+          task.state === "done" ? theme.fg("dim", `(${label})`) : `(${label})`;
+        const line = `    ${sym} ${titleText} ${labelText}`;
         container.addChild(new Text(line, 1, 0));
       }
     }
@@ -103,8 +116,36 @@ export function createTodoWidget(
       cached.lines = [];
     },
 
-    handleInput(_data: string): void {
-      // Non-interactive default; keyboard handling is performed by the extension
+    handleInput(data: string): void {
+      // Focus prev/next group (arrow keys or j/k) and toggle the focused
+      // group header with enter/space, matching the global shortcuts.
+      if (matchesKey(data, Key.up) || data === "k") {
+        const next = findPreviousGroupId(state.groups, focusedId);
+        if (next) {
+          focusedId = next;
+          options.onFocusGroup?.(next);
+          cached.width = 0;
+          cached.lines = [];
+        }
+        return;
+      }
+      if (matchesKey(data, Key.down) || data === "j") {
+        const next = findNextGroupId(state.groups, focusedId);
+        if (next) {
+          focusedId = next;
+          options.onFocusGroup?.(next);
+          cached.width = 0;
+          cached.lines = [];
+        }
+        return;
+      }
+      if (matchesKey(data, Key.enter) || matchesKey(data, Key.space)) {
+        if (focusedId) {
+          options.onToggleGroup?.(focusedId);
+          cached.width = 0;
+          cached.lines = [];
+        }
+      }
     },
   };
 }

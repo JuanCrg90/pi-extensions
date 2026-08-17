@@ -9,9 +9,11 @@ import { parseTodoList, ParseError } from "./parser.js";
 import type { TaskState, WidgetState } from "./types.js";
 import {
   buildWidgetState,
+  mergeWidgetState,
   updateTaskState,
   deleteState,
   saveWidgetState,
+  restoreWidgetState,
 } from "./state.js";
 import {
   LoadTodoListParameters,
@@ -72,6 +74,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       "Markdown format: first # heading is the project title, second-level ## headings are task groups, and - [ ] / - [/] / - [x] are tasks.",
       "LoadTodoList returns the exact task IDs that UpdateTodoTask requires — keep them for later updates.",
       "The widget appears in the TUI and persists state in the project-local .pi/todo-widget-state.json. Keep it in sync: call UpdateTodoTask whenever a task's state changes.",
+      "If a todo list already exists for this project, LoadTodoList merges the new markdown into it rather than replacing it. Use UpdateTodoTask for individual task state changes; do not call LoadTodoList to mark tasks done.",
     ],
     parameters: LoadTodoListParameters,
 
@@ -93,7 +96,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
         };
       }
 
-      const widgetState = buildWidgetState(ctx.cwd, parsed);
+      const { widgetState, merged } = mergeWidgetState(ctx.cwd, parsed);
 
       state.widgetState = widgetState;
       state.focusedGroupId = widgetState.groups[0]?.id;
@@ -103,11 +106,12 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       refreshWidget(ctx);
 
       const total = widgetState.groups.reduce((acc, g) => acc + g.tasks.length, 0);
+      const action = merged ? "Merged into existing" : "Loaded";
       return {
         content: [
           {
             type: "text",
-            text: `Loaded todo list: ${widgetState.projectTitle} (${widgetState.groups.length} groups, ${total} tasks).`,
+            text: `${action} todo list: ${widgetState.projectTitle} (${widgetState.groups.length} groups, ${total} tasks).`,
           },
         ],
         details: {
@@ -115,6 +119,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
           groupCount: widgetState.groups.length,
           taskCount: total,
           tasks: buildTaskSummary(widgetState),
+          merged,
         },
       };
     },
@@ -131,6 +136,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       "taskId must be a stable ID from the todo widget. Use the tasks list returned by LoadTodoList or ListTodoTasks to get exact IDs.",
       "Mark completed tasks with state \"done\", ongoing work with \"in-progress\", and untouched work \"not-started\".",
       "State changes persist to the project-local state file and refresh the widget.",
+      "If another agent may have updated the list, call ListTodoTasks first to see the current state before updating.",
     ],
     parameters: UpdateTodoTaskParameters,
 
@@ -202,8 +208,14 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
       _params: Record<string, never>,
       _signal: AbortSignal | undefined,
       _onUpdate: AgentToolUpdateCallback<unknown> | undefined,
-      _ctx: ExtensionContext,
+      ctx: ExtensionContext,
     ) {
+      // Re-read from disk so we reflect changes made by other agents
+      const restored = restoreWidgetState(ctx.cwd);
+      if (restored) {
+        state.widgetState = restored;
+      }
+
       if (!state.widgetState) {
         return {
           content: [
@@ -215,6 +227,8 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
           details: { error: "no_list_loaded" },
         };
       }
+
+      refreshWidget(ctx);
 
       const total = state.widgetState.groups.reduce((acc, g) => acc + g.tasks.length, 0);
       return {

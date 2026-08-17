@@ -486,6 +486,64 @@ test("LoadTodoList sanitizes escape sequences before generating IDs", async () =
   }
 });
 
+test("LoadTodoList merges with existing state instead of replacing", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+    await mock.tools.UpdateTodoTask(
+      "call-2",
+      { taskId: "group-a:one", state: "done" },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    // Now load a new markdown with the same project title that adds Group B
+    const result = (await mock.tools.LoadTodoList(
+      "call-3",
+      {
+        markdown: `# Project
+
+## Group A
+
+- [ ] One
+- [ ] Two
+
+## Group B
+
+- [ ] Three
+`,
+      },
+      undefined,
+      undefined,
+      ctx,
+    )) as { content: { text: string }[]; details: { merged: boolean; tasks: { id: string; state: string }[] } };
+
+    assert.ok(result.details.merged);
+    assert.ok(result.content[0].text.includes("Merged"));
+    assert.equal(result.details.tasks.length, 3);
+
+    // Group A tasks should preserve the done state
+    const taskOne = result.details.tasks.find((t) => t.id === "group-a:one")!;
+    assert.equal(taskOne.state, "done");
+
+    const persisted = JSON.parse(readFileSync(join(dir, ".pi", "todo-widget-state.json"), "utf-8"));
+    assert.equal(persisted.groups.length, 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("loading a different project title resets persisted task state", async () => {
   const dir = tempDir();
   try {

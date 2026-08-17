@@ -1,7 +1,87 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync, unlinkSync } from "node:fs";
 import { join, dirname } from "node:path";
-import type { PersistedState, ParsedTodoList, TaskState, WidgetState, TaskGroup, Task } from "./types.js";
+import type { PersistedState, PersistedGroup, ParsedTodoList, TaskState, WidgetState, TaskGroup, Task } from "./types.js";
 import { withIds } from "./ids.js";
+
+function groupFromPersisted(pg: PersistedGroup): TaskGroup {
+  return {
+    id: pg.id,
+    title: pg.title,
+    tasks: pg.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      state: task.state,
+    })),
+  };
+}
+
+function mergeGroups(
+  existing: TaskGroup[],
+  parsed: TaskGroup[],
+  taskOverrides: Record<string, { state: TaskState }>,
+): TaskGroup[] {
+  const merged: TaskGroup[] = [];
+  const seenGroupIds = new Set<string>();
+
+  // Keep existing groups, merging in any new/updated tasks from parsed
+  for (const existingGroup of existing) {
+    const parsedGroup = parsed.find((g) => g.id === existingGroup.id);
+    if (parsedGroup) {
+      const mergedTasks: Task[] = [];
+      const seenTaskIds = new Set<string>();
+
+      // Preserve existing tasks; if a task also exists in parsed, the title
+      // may have changed but state comes from persisted overrides.
+      for (const existingTask of existingGroup.tasks) {
+        const parsedTask = parsedGroup.tasks.find((t) => t.id === existingTask.id);
+        mergedTasks.push({
+          id: existingTask.id,
+          title: parsedTask ? parsedTask.title : existingTask.title,
+          state: taskOverrides[existingTask.id]?.state ?? existingTask.state,
+        });
+        seenTaskIds.add(existingTask.id);
+      }
+
+      // Add brand-new tasks from parsed
+      for (const parsedTask of parsedGroup.tasks) {
+        if (!seenTaskIds.has(parsedTask.id)) {
+          mergedTasks.push({
+            id: parsedTask.id,
+            title: parsedTask.title,
+            state: taskOverrides[parsedTask.id]?.state ?? parsedTask.state,
+          });
+        }
+      }
+
+      merged.push({
+        id: existingGroup.id,
+        title: parsedGroup.title,
+        tasks: mergedTasks,
+      });
+    } else {
+      // Group only in persisted — keep it untouched
+      merged.push(existingGroup);
+    }
+    seenGroupIds.add(existingGroup.id);
+  }
+
+  // Add brand-new groups from parsed
+  for (const parsedGroup of parsed) {
+    if (!seenGroupIds.has(parsedGroup.id)) {
+      merged.push({
+        id: parsedGroup.id,
+        title: parsedGroup.title,
+        tasks: parsedGroup.tasks.map((task) => ({
+          id: task.id,
+          title: task.title,
+          state: taskOverrides[task.id]?.state ?? task.state,
+        })),
+      });
+    }
+  }
+
+  return merged;
+}
 
 const STATE_DIR = ".pi";
 const STATE_FILE = "todo-widget-state.json";
@@ -100,6 +180,17 @@ function restoreWidgetState(projectPath: string): WidgetState | null {
   };
 }
 
+function autoCollapseDoneGroups(groups: TaskGroup[], baseCollapsed: Set<string>): Set<string> {
+  const collapsedGroups = new Set(baseCollapsed);
+  for (const group of groups) {
+    const allDone = group.tasks.length > 0 && group.tasks.every((t) => t.state === "done");
+    if (allDone) {
+      collapsedGroups.add(group.id);
+    }
+  }
+  return collapsedGroups;
+}
+
 export function buildWidgetState(
   projectPath: string,
   parsed: ParsedTodoList,
@@ -119,21 +210,48 @@ export function buildWidgetState(
     })),
   }));
 
-  const collapsedGroups = new Set(
-    persistedTitleMatches ? (persisted.collapsedGroups ?? []) : [],
+  const collapsedGroups = autoCollapseDoneGroups(
+    groups,
+    new Set(persistedTitleMatches ? (persisted.collapsedGroups ?? []) : []),
   );
-
-  for (const group of groups) {
-    const allDone = group.tasks.length > 0 && group.tasks.every((t) => t.state === "done");
-    if (allDone) {
-      collapsedGroups.add(group.id);
-    }
-  }
 
   return {
     projectTitle: parsed.projectTitle,
     groups,
     collapsedGroups,
+  };
+}
+
+export function mergeWidgetState(
+  projectPath: string,
+  parsed: ParsedTodoList,
+): { widgetState: WidgetState; merged: boolean } {
+  const withIdsList = withIds(parsed);
+  const persisted = loadState(projectPath);
+
+  const persistedTitleMatches = persisted.projectTitle === parsed.projectTitle;
+
+  // No prior state or different project — behave like a fresh load
+  if (!persistedTitleMatches || !persisted.groups || persisted.groups.length === 0) {
+    return { widgetState: buildWidgetState(projectPath, parsed), merged: false };
+  }
+
+  const taskOverrides = persisted.tasks ?? {};
+  const existingGroups = persisted.groups.map(groupFromPersisted);
+  const mergedGroups = mergeGroups(existingGroups, withIdsList.groups, taskOverrides);
+
+  const collapsedGroups = autoCollapseDoneGroups(
+    mergedGroups,
+    new Set(persisted.collapsedGroups ?? []),
+  );
+
+  return {
+    widgetState: {
+      projectTitle: parsed.projectTitle,
+      groups: mergedGroups,
+      collapsedGroups,
+    },
+    merged: true,
   };
 }
 

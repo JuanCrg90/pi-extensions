@@ -62,6 +62,7 @@ Task IDs are stable and derived from the markdown text: `<group-slug>:<item-slug
 - `/toggle-todo-widget`
 - `/expand-todo-groups`
 - `/collapse-todo-groups`
+- `/clear-todo-list` (asks for confirmation)
 
 ### Known limitation: no mouse support
 

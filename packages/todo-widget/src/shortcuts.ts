@@ -1,5 +1,9 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { setCollapsedGroups } from "./state.js";
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
+import { deleteState, setCollapsedGroups } from "./state.js";
 import { findNextGroupId, findPreviousGroupId } from "./widget.js";
 import type { TodoState } from "./tools.js";
 
@@ -105,6 +109,29 @@ export function registerShortcuts(pi: ExtensionAPI, deps: ShortcutDeps): void {
     description: "Collapse all todo groups",
     handler: async (_args, ctx) => {
       await collapseAll(ctx);
+    },
+  });
+
+  pi.registerCommand("clear-todo-list", {
+    description: "Clear the todo list and delete persisted state",
+    handler: async (_args, ctx: ExtensionCommandContext) => {
+      if (ctx.hasUI) {
+        const ok = await ctx.ui.confirm(
+          "Clear todo list?",
+          "This will remove the widget and delete the persisted state file.",
+        );
+        if (!ok) {
+          ctx.ui.notify("Todo list clear cancelled", "info");
+          return;
+        }
+      }
+
+      state.widgetState = null;
+      state.focusedGroupId = undefined;
+      state.widgetVisible = false;
+      deleteState(ctx.cwd);
+      refreshWidget(ctx);
+      ctx.ui.notify("Todo list cleared and state deleted", "info");
     },
   });
 }

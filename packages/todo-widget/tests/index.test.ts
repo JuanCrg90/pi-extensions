@@ -49,6 +49,7 @@ function createMockCtx(
   projectPath: string,
   widgets: string[],
   notify: string[],
+  confirmResult: boolean = true,
 ): ExtensionContext {
   return {
     mode: "tui",
@@ -60,6 +61,7 @@ function createMockCtx(
       notify: (message: string) => {
         notify.push(message);
       },
+      confirm: async () => confirmResult,
     },
     cwd: projectPath,
   } as unknown as ExtensionContext;
@@ -583,6 +585,55 @@ test("loading a different project title resets persisted task state", async () =
     )) as { details: { tasks: { id: string; state: string }[] } };
 
     assert.equal(result.details.tasks[0].state, "not-started");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("/clear-todo-list command clears state and widget when confirmed", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify, true);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    await mock.commands["clear-todo-list"]("", ctx);
+
+    assert.ok(!existsSync(join(dir, ".pi", "todo-widget-state.json")));
+    assert.equal(mock.widgets[mock.widgets.length - 1], "empty");
+    assert.ok(mock.notify.some((m) => m.includes("cleared")));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("/clear-todo-list command does not clear when cancelled", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify, false);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    await mock.commands["clear-todo-list"]("", ctx);
+
+    assert.ok(existsSync(join(dir, ".pi", "todo-widget-state.json")));
+    assert.ok(mock.notify.some((m) => m.includes("cancelled")));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -1,0 +1,640 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import todoWidget from "../src/index.ts";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+
+function tempDir(): string {
+  return mkdtempSync(join(tmpdir(), "todo-widget-"));
+}
+
+function createMockApi(): {
+  api: ExtensionAPI;
+  tools: Record<string, (...args: unknown[]) => unknown>;
+  shortcuts: Record<string, (...args: unknown[]) => unknown>;
+  commands: Record<string, (...args: unknown[]) => unknown>;
+  events: Record<string, (...args: unknown[]) => unknown>;
+  widgets: string[];
+  notify: string[];
+} {
+  const tools: Record<string, (...args: unknown[]) => unknown> = {};
+  const shortcuts: Record<string, (...args: unknown[]) => unknown> = {};
+  const commands: Record<string, (...args: unknown[]) => unknown> = {};
+  const events: Record<string, (...args: unknown[]) => unknown> = {};
+  const widgets: string[] = [];
+  const notify: string[] = [];
+
+  const api = {
+    registerTool: (opts: { name: string; execute: (...args: unknown[]) => unknown }) => {
+      tools[opts.name] = opts.execute;
+    },
+    registerShortcut: (key: string, opts: { handler: (...args: unknown[]) => unknown }) => {
+      shortcuts[key] = opts.handler;
+    },
+    registerCommand: (name: string, opts: { handler: (...args: unknown[]) => unknown }) => {
+      commands[name] = opts.handler;
+    },
+    on: (event: string, handler: (...args: unknown[]) => unknown) => {
+      events[event] = handler;
+    },
+  } as unknown as ExtensionAPI;
+
+  return { api, tools, shortcuts, commands, events, widgets, notify };
+}
+
+function createMockCtx(
+  projectPath: string,
+  widgets: string[],
+  notify: string[],
+  confirmResult: boolean = true,
+): ExtensionContext {
+  return {
+    mode: "tui",
+    hasUI: true,
+    ui: {
+      setWidget: (_key: string, value: unknown) => {
+        widgets.push(typeof value === "function" ? "component" : "empty");
+      },
+      notify: (message: string) => {
+        notify.push(message);
+      },
+      confirm: async () => confirmResult,
+    },
+    cwd: projectPath,
+  } as unknown as ExtensionContext;
+}
+
+const sampleMarkdown = (group: string): string => `# Project
+
+## ${group}
+
+- [ ] One
+- [ ] Two
+`;
+
+test("LoadTodoList returns error for invalid markdown", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    const result = (await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: "# Title\n\nNo groups here\n" },
+      undefined,
+      undefined,
+      ctx,
+    )) as { content: { text: string }[]; details: { error: string } };
+
+    assert.equal(result.details.error, "parse_failed");
+    assert.ok(result.content[0].text.includes("No task groups found"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("LoadTodoList parses markdown and sets widget", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    const result = (await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    )) as { content: { text: string }[] };
+
+    assert.equal(result.content[0].text, "Loaded todo list: Project (1 groups, 2 tasks).");
+    assert.equal(mock.widgets.length, 1);
+    assert.equal(mock.widgets[0], "component");
+
+    const stateFile = join(dir, ".pi", "todo-widget-state.json");
+    assert.ok(existsSync(stateFile));
+    const persisted = JSON.parse(readFileSync(stateFile, "utf-8"));
+    assert.deepEqual(persisted.collapsedGroups, []);
+    assert.equal(persisted.groups[0].title, "Group A");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("LoadTodoList returns task IDs in details", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    const result = (await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    )) as { details: { tasks: { id: string; title: string; state: string }[] } };
+
+    assert.ok(result.details.tasks);
+    assert.equal(result.details.tasks.length, 2);
+    assert.equal(result.details.tasks[0].id, "group-a:one");
+    assert.equal(result.details.tasks[0].title, "One");
+    assert.equal(result.details.tasks[0].state, "not-started");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("UpdateTodoTask returns error for unknown task ID", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    const result = (await mock.tools.UpdateTodoTask(
+      "call-2",
+      { taskId: "group-a:nonexistent", state: "done" },
+      undefined,
+      undefined,
+      ctx,
+    )) as { content: { text: string }[]; details: { error: string } };
+
+    assert.equal(result.details.error, "task_not_found");
+    assert.ok(result.content[0].text.includes("not found"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("ListTodoTasks returns current tasks with IDs", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    const result = (await mock.tools.ListTodoTasks(
+      "call-2",
+      {},
+      undefined,
+      undefined,
+      ctx,
+    )) as { details: { tasks: { id: string; title: string }[] } };
+
+    assert.equal(result.details.tasks.length, 2);
+    assert.equal(result.details.tasks[0].id, "group-a:one");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("ListTodoTasks fails when no list is loaded", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    const result = (await mock.tools.ListTodoTasks(
+      "call-1",
+      {},
+      undefined,
+      undefined,
+      ctx,
+    )) as { details: { error: string } };
+
+    assert.equal(result.details.error, "no_list_loaded");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("UpdateTodoTask updates state and refreshes widget", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    const result = (await mock.tools.UpdateTodoTask(
+      "call-2",
+      { taskId: "group-a:one", state: "done" },
+      undefined,
+      undefined,
+      ctx,
+    )) as { content: { text: string }[] };
+
+    assert.equal(result.content[0].text, "Updated task group-a:one to done.");
+    assert.equal(mock.widgets.length, 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("UpdateTodoTask fails when no list is loaded", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    const result = (await mock.tools.UpdateTodoTask(
+      "call-1",
+      { taskId: "group-a:one", state: "done" },
+      undefined,
+      undefined,
+      ctx,
+    )) as { content: { text: string }[]; details: { error: string } };
+
+    assert.equal(result.content[0].text, "No todo list is loaded. Call LoadTodoList first.");
+    assert.equal(result.details.error, "no_list_loaded");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("ClearTodoList clears state and widget when confirmed", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    const result = (await mock.tools.ClearTodoList(
+      "call-2",
+      { confirm: true },
+      undefined,
+      undefined,
+      ctx,
+    )) as { content: { text: string }[] };
+
+    assert.equal(result.content[0].text, "Todo list cleared and state deleted.");
+    assert.ok(!existsSync(join(dir, ".pi", "todo-widget-state.json")));
+    assert.equal(mock.widgets[mock.widgets.length - 1], "empty");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("ClearTodoList does not clear without confirmation", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    const result = (await mock.tools.ClearTodoList(
+      "call-2",
+      { confirm: false },
+      undefined,
+      undefined,
+      ctx,
+    )) as { content: { text: string }[]; details: { cleared: boolean } };
+
+    assert.equal(result.content[0].text, "ClearTodoList was not confirmed. Pass confirm: true to clear.");
+    assert.equal(result.details.cleared, false);
+    assert.ok(existsSync(join(dir, ".pi", "todo-widget-state.json")));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("Group navigation shortcuts cycle focus and toggle collapse", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      {
+        markdown: `# Project
+
+## Group A
+
+- [ ] One
+
+## Group B
+
+- [ ] Two
+`,
+      },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    const initialWidgets = mock.widgets.length;
+    await mock.shortcuts["ctrl+shift+["](ctx);
+    assert.equal(mock.widgets.length, initialWidgets + 1);
+
+    await mock.shortcuts["ctrl+shift+return"](ctx);
+    const persisted = JSON.parse(readFileSync(join(dir, ".pi", "todo-widget-state.json"), "utf-8"));
+    assert.ok(persisted.collapsedGroups.includes("group-b"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("Toggle shortcut flips widget visibility", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    await mock.shortcuts["ctrl+shift+l"](ctx);
+    assert.equal(mock.widgets[mock.widgets.length - 1], "empty");
+    assert.equal(mock.notify[0], "Todo widget off");
+
+    await mock.shortcuts["ctrl+shift+l"](ctx);
+    assert.equal(mock.widgets[mock.widgets.length - 1], "component");
+    assert.equal(mock.notify[1], "Todo widget on");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("session_start restores persisted widget state", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+    await mock.tools.UpdateTodoTask(
+      "call-2",
+      { taskId: "group-a:one", state: "done" },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    // Simulate a new session starting in the same project
+    await mock.events["session_start"]({ type: "session_start", reason: "startup" }, ctx);
+
+    const result = (await mock.tools.ListTodoTasks(
+      "call-3",
+      {},
+      undefined,
+      undefined,
+      ctx,
+    )) as { details: { tasks: { id: string; state: string }[] } };
+
+    assert.equal(result.details.tasks[0].state, "done");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("LoadTodoList sanitizes escape sequences before generating IDs", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    const result = (await mock.tools.LoadTodoList(
+      "call-1",
+      {
+        markdown: `# \x1b[31mProject\x1b[0m
+
+## \x1b]52;c;cGF5bG9hZA==\x07 Group
+
+- [ ] \x1b[31mRed\x1b[0m Task
+`,
+      },
+      undefined,
+      undefined,
+      ctx,
+    )) as { details: { tasks: { id: string; title: string }[]; projectTitle: string } };
+
+    assert.equal(result.details.projectTitle, "Project");
+    assert.equal(result.details.tasks[0].title, "Red Task");
+    assert.ok(!result.details.tasks[0].id.includes("\x1b"));
+    assert.ok(!result.details.tasks[0].id.includes("\x07"));
+    assert.equal(result.details.tasks[0].id, "group:red-task");
+
+    const persisted = JSON.parse(readFileSync(join(dir, ".pi", "todo-widget-state.json"), "utf-8"));
+    assert.equal(persisted.projectTitle, "Project");
+    assert.equal(persisted.groups[0].title, "Group");
+    assert.equal(persisted.groups[0].tasks[0].title, "Red Task");
+    assert.ok(!Object.keys(persisted.tasks)[0].includes("\x1b"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("LoadTodoList merges with existing state instead of replacing", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+    await mock.tools.UpdateTodoTask(
+      "call-2",
+      { taskId: "group-a:one", state: "done" },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    // Now load a new markdown with the same project title that adds Group B
+    const result = (await mock.tools.LoadTodoList(
+      "call-3",
+      {
+        markdown: `# Project
+
+## Group A
+
+- [ ] One
+- [ ] Two
+
+## Group B
+
+- [ ] Three
+`,
+      },
+      undefined,
+      undefined,
+      ctx,
+    )) as { content: { text: string }[]; details: { merged: boolean; tasks: { id: string; state: string }[] } };
+
+    assert.ok(result.details.merged);
+    assert.ok(result.content[0].text.includes("Merged"));
+    assert.equal(result.details.tasks.length, 3);
+
+    // Group A tasks should preserve the done state
+    const taskOne = result.details.tasks.find((t) => t.id === "group-a:one")!;
+    assert.equal(taskOne.state, "done");
+
+    const persisted = JSON.parse(readFileSync(join(dir, ".pi", "todo-widget-state.json"), "utf-8"));
+    assert.equal(persisted.groups.length, 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("loading a different project title resets persisted task state", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+    await mock.tools.UpdateTodoTask(
+      "call-2",
+      { taskId: "group-a:one", state: "done" },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    await mock.tools.LoadTodoList(
+      "call-3",
+      { markdown: `# Different Project\n\n## Group A\n\n- [ ] One\n- [ ] Two\n` },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    const result = (await mock.tools.ListTodoTasks(
+      "call-4",
+      {},
+      undefined,
+      undefined,
+      ctx,
+    )) as { details: { tasks: { id: string; state: string }[] } };
+
+    assert.equal(result.details.tasks[0].state, "not-started");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("/clear-todo-list command clears state and widget when confirmed", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify, true);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    await mock.commands["clear-todo-list"]("", ctx);
+
+    assert.ok(!existsSync(join(dir, ".pi", "todo-widget-state.json")));
+    assert.equal(mock.widgets[mock.widgets.length - 1], "empty");
+    assert.ok(mock.notify.some((m) => m.includes("cleared")));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("/clear-todo-list command does not clear when cancelled", async () => {
+  const dir = tempDir();
+  try {
+    const mock = createMockApi();
+    todoWidget(mock.api);
+
+    const ctx = createMockCtx(dir, mock.widgets, mock.notify, false);
+    await mock.tools.LoadTodoList(
+      "call-1",
+      { markdown: sampleMarkdown("Group A") },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    await mock.commands["clear-todo-list"]("", ctx);
+
+    assert.ok(existsSync(join(dir, ".pi", "todo-widget-state.json")));
+    assert.ok(mock.notify.some((m) => m.includes("cancelled")));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

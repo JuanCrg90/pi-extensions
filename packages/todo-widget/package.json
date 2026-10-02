@@ -1,6 +1,6 @@
 {
   "name": "@juancrg90/todo-widget",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Persistent accordion-style todo list widget for pi — display agent task groups from markdown and update state from the agent.",
   "keywords": [
     "pi-package",

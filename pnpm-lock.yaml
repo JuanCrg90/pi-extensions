@@ -34,7 +34,7 @@ importers:
         specifier: '*'
         version: 0.80.3
       '@sinclair/typebox':
-        specifier: ^0.34.0
+        specifier: '*'
         version: 0.34.50
     devDependencies:
       '@earendil-works/pi-coding-agent':

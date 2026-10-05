@@ -3,7 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "description": "Mono-repo for Pi extensions — a collection of high-quality, open-source extensions for the Pi AI assistant.",
-  "keywords": ["pi-package", "extensions", "pi", "pi-tui"],
+  "keywords": [
+    "pi-package",
+    "extensions",
+    "pi",
+    "pi-tui"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/JuanCrg90/pi-extensions.git"
@@ -17,9 +22,13 @@
     "publish:dracula-themes": "pnpm --filter @juancrg90/dracula-themes publish --access public",
     "publish:nightfox-themes": "pnpm --filter @juancrg90/nightfox-themes publish --access public",
     "publish:ask-user-question": "pnpm --filter @juancrg90/ask-user-question publish --access public",
-    "publish:todo-widget": "pnpm --filter @juancrg90/todo-widget publish --access public"
+    "publish:todo-widget": "pnpm --filter @juancrg90/todo-widget publish --access public",
+    "publish:context-bar": "pnpm --filter @juancrg90/context-bar publish --access public"
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
 }

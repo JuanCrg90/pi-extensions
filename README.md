@@ -11,6 +11,7 @@ Mono-repo for [pi](https://github.com/earendil-works/pi-mono) extensions — a c
 | **nightfox-themes** | Theme pack | Nightfox collection (7 themes: dark + light) for Pi | `pi install npm:@juancrg90/nightfox-themes` | [README](packages/nightfox-themes/README.md)
 | **ask-user-question** | Extension | Interactive AskUserQuestion tool — pause and ask structured questions in the TUI with stable ID-based results | `pi install npm:@juancrg90/ask-user-question` | [README](packages/ask-user-question/README.md) |
 | **todo-widget** | Extension | Persistent accordion-style todo list widget — display task groups from markdown and update state as the agent works | `pi install npm:@juancrg90/todo-widget` | [README](packages/todo-widget/README.md) |
+| **context-bar** | Extension | Context usage breakdown for the status bar — see how system prompt, tools, MCP tools, skills, memory files, and messages consume the context window | `pi install npm:@juancrg90/context-bar` | [README](packages/context-bar/README.md) |
 
 ## 🏗 Structure
 

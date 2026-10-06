@@ -33,8 +33,13 @@ live events.
 ### Webapp controls
 
 - **Category toggles** — show or hide events by category.
+- **Event type filter** — dynamically discover event types and toggle each one on or off.
+- **Text search** — filter events by text in the event type, summary, or stringified payload. Input is debounced so filtering stays responsive.
+- **Time range filter** — show only events from the last 30 seconds, 1 minute, 5 minutes, or all time, relative to the most recent event.
+- **Compact deltas** — collapse 3+ consecutive `message_update` events of the same delta type into a single compact row. Click the row (or the expand arrow) to inspect every individual delta.
+- **Visible metadata** — each row shows the latency since the previous event and the stringified payload size. The status bar shows live counts for every category.
 - **Auto-scroll** — automatically scroll to the newest event; pause if you scroll up manually.
-- **Export trace** — download the currently buffered events as `agent-loop-trace-<timestamp>.json`.
+- **Export trace** — download the currently filtered view as JSON, a self-contained HTML timeline, or a Markdown table. The export respects category, type, search, time range, and compact-mode settings.
 - **Clear** — clear the timeline display without affecting the server buffer.
 
 ## Event categories

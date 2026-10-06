@@ -137,6 +137,97 @@
       color: var(--accent);
     }
 
+    /* Filters bar */
+    .filters-bar {
+      padding: 0.5rem 1.25rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.75rem;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .filters-bar input[type="search"],
+    .filters-bar select {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 0.35rem;
+      padding: 0.35rem 0.55rem;
+      font-size: 0.8rem;
+      font-family: var(--font-sans);
+    }
+
+    .filters-bar input[type="search"] {
+      min-width: 12rem;
+    }
+
+    .filters-bar select {
+      appearance: auto;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .types-dropdown {
+      position: relative;
+    }
+
+    .types-popover {
+      position: absolute;
+      top: calc(100% + 0.35rem);
+      right: 0;
+      min-width: 14rem;
+      max-height: 60vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.35rem;
+      padding: 0.5rem;
+      z-index: 20;
+      display: none;
+    }
+
+    .types-popover:not(.hidden) {
+      display: block;
+    }
+
+    .types-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .type-option {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+      color: var(--text);
+      padding: 0.15rem 0;
+    }
+
+    .type-option input {
+      margin: 0;
+    }
+
+    .type-option .type-count {
+      color: var(--text-muted);
+      margin-left: auto;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+    }
+
+    .type-empty {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      padding: 0.25rem 0;
+    }
+
     /* Status bar */
     .status-bar {
       padding: 0.5rem 1.25rem;
@@ -147,6 +238,7 @@
       align-items: center;
       font-size: 0.8rem;
       color: var(--text-muted);
+      flex-wrap: wrap;
     }
 
     .status-dot {
@@ -159,6 +251,33 @@
     .status-dot.connecting { background: var(--warning); }
     .status-dot.connected  { background: var(--accent); }
     .status-dot.error      { background: var(--danger); }
+
+    .category-counts {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+
+    .category-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .category-count::before {
+      content: "";
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 50%;
+      background: var(--cat);
+    }
+
+    .category-count[data-category="session"]  { --cat: var(--category-session); }
+    .category-count[data-category="agent"]    { --cat: var(--category-agent); }
+    .category-count[data-category="prompt"]   { --cat: var(--category-prompt); }
+    .category-count[data-category="tool"]     { --cat: var(--category-tool); }
+    .category-count[data-category="provider"] { --cat: var(--category-provider); }
 
     /* Timeline */
     #timeline {
@@ -185,10 +304,18 @@
       border-color: #3c404d;
     }
 
+    .event-row.compact-group {
+      border-style: dashed;
+    }
+
+    .event-row.compact-group.expanded {
+      border-style: solid;
+    }
+
     .event-header {
       display: grid;
-      grid-template-columns: auto auto 1fr auto;
-      gap: 0.75rem;
+      grid-template-columns: auto auto auto auto 1fr auto auto;
+      gap: 0.6rem 0.75rem;
       align-items: center;
       padding: 0.6rem 0.85rem;
       cursor: pointer;
@@ -201,6 +328,18 @@
       color: var(--text-muted);
       white-space: nowrap;
       min-width: 5.5rem;
+    }
+
+    .event-latency,
+    .event-size {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .event-size {
+      text-align: right;
     }
 
     .event-category {
@@ -240,6 +379,20 @@
       min-width: 0;
     }
 
+    .expand-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0 0.2rem;
+      line-height: 1;
+    }
+
+    .expand-btn:hover {
+      color: var(--text);
+    }
+
     .event-payload {
       border-top: 1px solid var(--border);
       background: var(--bg);
@@ -254,6 +407,27 @@
       line-height: 1.45;
       white-space: pre-wrap;
       word-break: break-word;
+    }
+
+    .group-payload {
+      padding: 0.5rem;
+    }
+
+    .nested-event {
+      margin-bottom: 0.25rem;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .nested-event:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .nested-event .event-header {
+      padding: 0.45rem 0.6rem;
     }
 
     .json-key         { color: #79c0ff; }
@@ -301,6 +475,10 @@
       .event-summary {
         grid-column: 1 / -1;
       }
+      .category-counts {
+        margin-left: 0;
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -314,15 +492,41 @@
       <button class="category-toggle" data-category="tool">tool</button>
       <button class="category-toggle" data-category="provider">provider</button>
       <button class="btn" id="autoscroll-toggle" title="Pause/resume auto-scroll">Auto-scroll: on</button>
-      <button class="btn" id="export-btn" title="Download buffered events as JSON">Export trace</button>
       <button class="btn" id="clear-btn" title="Clear the timeline display">Clear</button>
     </div>
   </header>
+
+  <div class="filters-bar">
+    <input type="search" id="search-input" placeholder="Search type, summary, payload…" />
+    <select id="time-range" title="Show events within a time window">
+      <option value="all">All time</option>
+      <option value="30s">Last 30 seconds</option>
+      <option value="1m">Last 1 minute</option>
+      <option value="5m">Last 5 minutes</option>
+    </select>
+    <button class="btn active" id="compact-toggle" title="Collapse consecutive message_update deltas">Compact deltas: on</button>
+    <div class="types-dropdown">
+      <button class="btn" id="types-toggle">Event types ▾</button>
+      <div id="types-popover" class="types-popover hidden">
+        <div class="types-list" id="types-list">
+          <div class="type-empty">No events yet</div>
+        </div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <select id="export-format" title="Export format">
+      <option value="json">JSON</option>
+      <option value="html">HTML (self-contained)</option>
+      <option value="markdown">Markdown</option>
+    </select>
+    <button class="btn" id="export-btn" title="Download filtered events">Export</button>
+  </div>
 
   <div class="status-bar">
     <span class="status-dot connecting" id="status-dot"></span>
     <span id="status-text">Connecting…</span>
     <span id="event-count">0 events</span>
+    <div class="category-counts" id="category-counts"></div>
   </div>
 
   <div id="timeline">
@@ -337,17 +541,35 @@
     const statusDot = document.getElementById("status-dot");
     const statusText = document.getElementById("status-text");
     const eventCountLabel = document.getElementById("event-count");
+    const categoryCountsEl = document.getElementById("category-counts");
     const autoscrollBtn = document.getElementById("autoscroll-toggle");
     const exportBtn = document.getElementById("export-btn");
+    const exportFormat = document.getElementById("export-format");
     const clearBtn = document.getElementById("clear-btn");
     const scrollHint = document.getElementById("scroll-hint");
+    const searchInput = document.getElementById("search-input");
+    const timeRangeSelect = document.getElementById("time-range");
+    const compactToggle = document.getElementById("compact-toggle");
+    const typesToggle = document.getElementById("types-toggle");
+    const typesPopover = document.getElementById("types-popover");
+    const typesList = document.getElementById("types-list");
 
+    const allEvents = [];
     const visibleCategories = new Set(["session", "agent", "prompt", "tool", "provider"]);
+    const visibleTypes = new Set();
+    const hiddenTypes = new Set();
+    const typeCounts = new Map();
+    const itemElements = new Map();
+    const expandedEventIds = new Set();
+    const expandedGroupIds = new Set();
+
     let autoScroll = true;
-    let eventsReceived = 0;
-    let expandedEventIds = new Set();
-    let renderedEventIds = new Set();
+    let searchQuery = "";
+    let searchTimer = null;
+    let timeRange = "all";
+    let compactDeltas = true;
     let lastScrollHeight = 0;
+    let renderScheduled = false;
 
     const events = new EventSource("/events");
 
@@ -363,11 +585,26 @@
       return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${ms}`;
     }
 
+    function formatLatency(ms) {
+      if (ms == null) return "";
+      if (ms < 1000) return `+${Math.round(ms)}ms`;
+      return `+${(ms / 1000).toFixed(1)}s`;
+    }
+
+    function formatBytes(n) {
+      if (n < 1024) return `${n} B`;
+      return `${(n / 1024).toFixed(1)} KB`;
+    }
+
     function escapeHtml(str) {
-      return str
+      return String(str)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
+    }
+
+    function escapeMd(str) {
+      return String(str).replace(/\|/g, "\\|").replace(/\n/g, " ");
     }
 
     function appendTextNode(parent, text) {
@@ -409,7 +646,6 @@
             }
           }
           const token = str.slice(i, end);
-          // Keys are strings immediately followed by ':' (allowing whitespace)
           const nextNonSpace = str.slice(end).match(/^\s*/);
           const isKey = str[end + (nextNonSpace ? nextNonSpace[0].length : 0)] === ":";
           appendSpan(pre, isKey ? "json-key" : "json-string", token);
@@ -437,7 +673,7 @@
         }
 
         // Punctuation
-        if (/[{}[\],:]/.test(ch)) {
+        if (/[{}\[\],:]/.test(ch)) {
           appendSpan(pre, "json-punctuation", ch);
           i++;
           continue;
@@ -470,6 +706,113 @@
       }
     }
 
+    function augmentEvent(event) {
+      let payloadString;
+      try {
+        payloadString = JSON.stringify(event.payload);
+      } catch {
+        payloadString = "";
+      }
+      const payloadSize = new TextEncoder().encode(payloadString).length;
+      const latency = allEvents.length > 0 ? event.timestamp - allEvents[allEvents.length - 1].timestamp : null;
+      return { ...event, _payloadString: payloadString, payloadSize, latency };
+    }
+
+    function discoverType(type) {
+      const existed = typeCounts.has(type);
+      typeCounts.set(type, (typeCounts.get(type) || 0) + 1);
+      if (!existed) {
+        if (!hiddenTypes.has(type)) {
+          visibleTypes.add(type);
+        }
+        renderTypeFilter();
+      } else {
+        updateTypeCount(type);
+      }
+    }
+
+    function getTimeAnchor() {
+      return allEvents.length > 0 ? allEvents[allEvents.length - 1].timestamp : Date.now();
+    }
+
+    function eventMatchesFilters(event, anchor = getTimeAnchor()) {
+      if (!visibleCategories.has(event.category)) return false;
+      if (!visibleTypes.has(event.type)) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (!event.type.toLowerCase().includes(q) &&
+            !event.summary.toLowerCase().includes(q) &&
+            !event._payloadString.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
+      if (timeRange !== "all") {
+        const windows = { "30s": 30000, "1m": 60000, "5m": 300000 };
+        if (event.timestamp < anchor - windows[timeRange]) return false;
+      }
+      return true;
+    }
+
+    function getDeltaType(event) {
+      return event.payload?.assistantMessageEvent?.type ?? "unknown";
+    }
+
+    function createGroupItem(run, deltaType) {
+      const first = run[0];
+      return {
+        kind: "group",
+        id: `group-${first.id}`,
+        deltaType,
+        events: run.slice(),
+        startTimestamp: first.timestamp,
+        endTimestamp: run[run.length - 1].timestamp,
+        payloadSize: run.reduce((sum, e) => sum + e.payloadSize, 0),
+        latency: first.latency,
+        get summary() {
+          return `message_update × ${this.events.length} (${this.deltaType})`;
+        },
+      };
+    }
+
+    function computeVisibleItems() {
+      const filtered = allEvents.filter(eventMatchesFilters);
+      if (!compactDeltas) {
+        return filtered.map((e) => ({ kind: "event", id: e.id, event: e }));
+      }
+
+      const items = [];
+      let run = [];
+      let runType = null;
+
+      function flushRun() {
+        if (run.length >= 3) {
+          items.push(createGroupItem(run, runType));
+        } else {
+          for (const e of run) items.push({ kind: "event", id: e.id, event: e });
+        }
+        run = [];
+        runType = null;
+      }
+
+      for (const event of filtered) {
+        if (event.type === "message_update") {
+          const dt = getDeltaType(event);
+          if (dt === runType) {
+            run.push(event);
+          } else {
+            flushRun();
+            run = [event];
+            runType = dt;
+          }
+        } else {
+          flushRun();
+          items.push({ kind: "event", id: event.id, event: event });
+        }
+      }
+      flushRun();
+      return items;
+    }
+
     function createEventRow(event) {
       const row = document.createElement("div");
       row.className = "event-row";
@@ -483,9 +826,11 @@
       header.className = "event-header";
       header.innerHTML = `
         <span class="event-timestamp" title="${new Date(event.timestamp).toISOString()}">${formatTime(event.timestamp)}</span>
+        <span class="event-latency" title="Time since previous event">${formatLatency(event.latency)}</span>
         <span class="event-category">${event.category}</span>
         <span class="event-type">${escapeHtml(event.type)}</span>
         <span class="event-summary">${escapeHtml(event.summary)}</span>
+        <span class="event-size" title="Payload size">${formatBytes(event.payloadSize)}</span>
       `;
 
       header.addEventListener("click", () => {
@@ -515,33 +860,198 @@
       return row;
     }
 
-    function applyFilters() {
-      const rows = timeline.querySelectorAll(".event-row");
-      for (const row of rows) {
-        row.style.display = visibleCategories.has(row.dataset.category) ? "" : "none";
+    function renderGroupPayload(container, item) {
+      container.innerHTML = "";
+      for (const event of item.events) {
+        const nested = createEventRow(event);
+        nested.classList.add("nested-event");
+        container.appendChild(nested);
       }
     }
 
-    function renderEvent(event) {
-      if (renderedEventIds.has(event.id)) {
-        return;
+    function createGroupRow(item) {
+      const row = document.createElement("div");
+      row.className = "event-row compact-group";
+      row.dataset.id = item.id;
+      if (expandedGroupIds.has(item.id)) {
+        row.classList.add("expanded");
       }
-      renderedEventIds.add(event.id);
 
-      emptyState.classList.add("hidden");
-      eventsReceived++;
-      eventCountLabel.textContent = `${eventsReceived} event${eventsReceived === 1 ? "" : "s"}`;
+      const header = document.createElement("div");
+      header.className = "event-header";
+      header.innerHTML = `
+        <span class="event-timestamp" title="${new Date(item.startTimestamp).toISOString()} – ${new Date(item.endTimestamp).toISOString()}">${formatTime(item.startTimestamp)}–${formatTime(item.endTimestamp)}</span>
+        <span class="event-latency" title="Time since previous event">${formatLatency(item.latency)}</span>
+        <span class="event-category">prompt</span>
+        <span class="event-type">message_update</span>
+        <span class="event-summary">${escapeHtml(item.summary)}</span>
+        <span class="event-size" title="Total payload size">${formatBytes(item.payloadSize)}</span>
+        <button class="expand-btn" title="Expand/collapse deltas">${expandedGroupIds.has(item.id) ? "▾" : "▸"}</button>
+      `;
 
-      const row = createEventRow(event);
-      if (!visibleCategories.has(event.category)) {
-        row.style.display = "none";
+      const toggle = (ev) => {
+        if (ev && ev.target.closest(".expand-btn")) {
+          ev.stopPropagation();
+        }
+        const payload = row.querySelector(".event-payload");
+        row.classList.toggle("expanded");
+        const expanded = row.classList.contains("expanded");
+        if (expanded) {
+          expandedGroupIds.add(item.id);
+          payload.style.display = "block";
+          renderGroupPayload(payload, item);
+        } else {
+          expandedGroupIds.delete(item.id);
+          payload.style.display = "none";
+        }
+        const btn = header.querySelector(".expand-btn");
+        if (btn) btn.textContent = expanded ? "▾" : "▸";
+      };
+
+      header.addEventListener("click", toggle);
+
+      const payload = document.createElement("div");
+      payload.className = "event-payload group-payload";
+      payload.style.display = expandedGroupIds.has(item.id) ? "block" : "none";
+      if (expandedGroupIds.has(item.id)) {
+        renderGroupPayload(payload, item);
       }
-      timeline.appendChild(row);
+
+      row.appendChild(header);
+      row.appendChild(payload);
+      return row;
+    }
+
+    function updateGroupElement(el, item) {
+      const ts = el.querySelector(".event-timestamp");
+      if (ts) ts.textContent = `${formatTime(item.startTimestamp)}–${formatTime(item.endTimestamp)}`;
+      const summary = el.querySelector(".event-summary");
+      if (summary) summary.textContent = item.summary;
+      const size = el.querySelector(".event-size");
+      if (size) size.textContent = formatBytes(item.payloadSize);
+      const latency = el.querySelector(".event-latency");
+      if (latency) latency.textContent = formatLatency(item.latency);
+      const btn = el.querySelector(".expand-btn");
+      if (btn) btn.textContent = expandedGroupIds.has(item.id) ? "▾" : "▸";
+
+      const payload = el.querySelector(".event-payload");
+      if (payload && payload.style.display === "block") {
+        renderGroupPayload(payload, item);
+      }
+    }
+
+    function createItemElement(item) {
+      return item.kind === "group" ? createGroupRow(item) : createEventRow(item.event);
+    }
+
+    function updateItemElement(el, item) {
+      if (item.kind === "group") {
+        updateGroupElement(el, item);
+      }
+    }
+
+    function renderTimeline() {
+      const items = computeVisibleItems();
+      const wantedIds = new Set(items.map((i) => i.id));
+
+      for (const [id, el] of Array.from(itemElements.entries())) {
+        if (!wantedIds.has(id)) {
+          el.remove();
+          itemElements.delete(id);
+        }
+      }
+
+      for (const item of items) {
+        let el = itemElements.get(item.id);
+        if (!el) {
+          el = createItemElement(item);
+          itemElements.set(item.id, el);
+        } else {
+          updateItemElement(el, item);
+        }
+        timeline.appendChild(el);
+      }
+
+      if (items.length === 0) {
+        emptyState.classList.remove("hidden");
+      } else {
+        emptyState.classList.add("hidden");
+      }
 
       if (autoScroll && isNearBottom()) {
         scrollToBottom();
       } else {
         updateScrollHint();
+      }
+    }
+
+    function scheduleRender() {
+      if (renderScheduled) return;
+      renderScheduled = true;
+      requestAnimationFrame(() => {
+        renderScheduled = false;
+        renderTimeline();
+      });
+    }
+
+    function updateCategoryCounts() {
+      const counts = { session: 0, agent: 0, prompt: 0, tool: 0, provider: 0 };
+      for (const event of allEvents) {
+        counts[event.category] = (counts[event.category] || 0) + 1;
+      }
+      const total = allEvents.length;
+      eventCountLabel.textContent = `${total} event${total === 1 ? "" : "s"}`;
+
+      categoryCountsEl.innerHTML = "";
+      for (const category of ["session", "agent", "prompt", "tool", "provider"]) {
+        const span = document.createElement("span");
+        span.className = "category-count";
+        span.dataset.category = category;
+        span.textContent = `${category} ${counts[category]}`;
+        categoryCountsEl.appendChild(span);
+      }
+    }
+
+    function renderTypeFilter() {
+      typesList.innerHTML = "";
+      const sorted = Array.from(typeCounts.keys()).sort();
+      if (sorted.length === 0) {
+        typesList.innerHTML = '<div class="type-empty">No events yet</div>';
+        return;
+      }
+      for (const type of sorted) {
+        const label = document.createElement("label");
+        label.className = "type-option";
+        const count = typeCounts.get(type) || 0;
+        const checked = visibleTypes.has(type);
+        label.innerHTML = `
+          <input type="checkbox" value="${escapeHtml(type)}" ${checked ? "checked" : ""}>
+          <span>${escapeHtml(type)}</span>
+          <span class="type-count">${count}</span>
+        `;
+        const input = label.querySelector("input");
+        input.addEventListener("change", () => {
+          if (input.checked) {
+            visibleTypes.add(type);
+            hiddenTypes.delete(type);
+          } else {
+            visibleTypes.delete(type);
+            hiddenTypes.add(type);
+          }
+          scheduleRender();
+        });
+        typesList.appendChild(label);
+      }
+    }
+
+    function updateTypeCount(type) {
+      const inputs = typesList.querySelectorAll('input[type="checkbox"]');
+      for (const input of inputs) {
+        if (input.value === type) {
+          const countEl = input.closest(".type-option")?.querySelector(".type-count");
+          if (countEl) countEl.textContent = typeCounts.get(type) || 0;
+          break;
+        }
       }
     }
 
@@ -552,7 +1062,11 @@
     events.addEventListener("message", (event) => {
       try {
         const data = JSON.parse(event.data);
-        renderEvent(data);
+        const aug = augmentEvent(data);
+        allEvents.push(aug);
+        discoverType(aug.type);
+        updateCategoryCounts();
+        scheduleRender();
       } catch (err) {
         console.warn("[agent-loop-debugger] Failed to parse event:", event.data, err);
       }
@@ -577,7 +1091,7 @@
           visibleCategories.add(category);
           btn.classList.remove("hidden");
         }
-        applyFilters();
+        scheduleRender();
       });
     });
 
@@ -592,22 +1106,253 @@
       updateScrollHint();
     });
 
-    // Export trace
+    // Search debounce
+    searchInput.addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        searchQuery = searchInput.value.trim();
+        scheduleRender();
+      }, 150);
+    });
+
+    // Time range filter
+    timeRangeSelect.addEventListener("change", () => {
+      timeRange = timeRangeSelect.value;
+      scheduleRender();
+    });
+
+    // Compact deltas toggle
+    compactToggle.addEventListener("click", () => {
+      compactDeltas = !compactDeltas;
+      compactToggle.textContent = `Compact deltas: ${compactDeltas ? "on" : "off"}`;
+      compactToggle.classList.toggle("active", compactDeltas);
+      scheduleRender();
+    });
+
+    // Event types popover
+    typesToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      typesPopover.classList.toggle("hidden");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!typesPopover.contains(e.target) && e.target !== typesToggle) {
+        typesPopover.classList.add("hidden");
+      }
+    });
+
+    // Export
+    function toExportEvent(event) {
+      return {
+        id: event.id,
+        timestamp: event.timestamp,
+        category: event.category,
+        type: event.type,
+        summary: event.summary,
+        latency: event.latency,
+        payloadSize: event.payloadSize,
+        payload: event.payload,
+      };
+    }
+
+    function toExportItem(item) {
+      if (item.kind === "event") {
+        return toExportEvent(item.event);
+      }
+      return {
+        kind: "compact-group",
+        count: item.events.length,
+        type: "message_update",
+        deltaType: item.deltaType,
+        startTimestamp: item.startTimestamp,
+        endTimestamp: item.endTimestamp,
+        latency: item.latency,
+        payloadSize: item.payloadSize,
+        summary: item.summary,
+        events: item.events.map(toExportEvent),
+      };
+    }
+
+    function serializeEventHtml(event) {
+      const payload = escapeHtml(JSON.stringify(event.payload, null, 2));
+      const latency = escapeHtml(formatLatency(event.latency));
+      return (
+        '<div class="event-row" data-category="' + event.category + '">\n' +
+        '  <div class="event-header">\n' +
+        '    <span class="event-timestamp">' + escapeHtml(formatTime(event.timestamp)) + '</span>\n' +
+        '    <span class="event-latency">' + latency + '</span>\n' +
+        '    <span class="event-category">' + event.category + '</span>\n' +
+        '    <span class="event-type">' + escapeHtml(event.type) + '</span>\n' +
+        '    <span class="event-summary">' + escapeHtml(event.summary) + '</span>\n' +
+        '    <span class="event-size">' + escapeHtml(formatBytes(event.payloadSize)) + '</span>\n' +
+        '  </div>\n' +
+        '  <div class="event-payload" style="display:none;"><pre>' + payload + '</pre></div>\n' +
+        '</div>'
+      );
+    }
+
+    function serializeGroupHtml(item) {
+      const eventsHtml = item.events.map(serializeEventHtml).join("\n");
+      const latency = escapeHtml(formatLatency(item.latency));
+      return (
+        '<div class="event-row compact-group">\n' +
+        '  <div class="event-header">\n' +
+        '    <span class="event-timestamp">' + escapeHtml(formatTime(item.startTimestamp)) + "–" + escapeHtml(formatTime(item.endTimestamp)) + '</span>\n' +
+        '    <span class="event-latency">' + latency + '</span>\n' +
+        '    <span class="event-category">prompt</span>\n' +
+        '    <span class="event-type">message_update</span>\n' +
+        '    <span class="event-summary">' + escapeHtml(item.summary) + '</span>\n' +
+        '    <span class="event-size">' + escapeHtml(formatBytes(item.payloadSize)) + '</span>\n' +
+        '    <button class="expand-btn">▸</button>\n' +
+        '  </div>\n' +
+        '  <div class="event-payload group-payload" style="display:none;">\n' + eventsHtml + '\n  </div>\n' +
+        '</div>'
+      );
+    }
+
+    function generateHtmlExport(items) {
+      const rows = items.map((item) => {
+        return item.kind === "group" ? serializeGroupHtml(item) : serializeEventHtml(item.event);
+      }).join("\n");
+
+      return (
+        '<!DOCTYPE html>\n' +
+        '<html lang="en">\n' +
+        '<head>\n' +
+        '  <meta charset="UTF-8">\n' +
+        '  <title>Agent Loop Debugger Export</title>\n' +
+        '  <style>' + document.querySelector("style").textContent + '</style>\n' +
+        '</head>\n' +
+        '<body>\n' +
+        '  <header>\n' +
+        '    <div class="title">Agent Loop Debugger Export</div>\n' +
+        '    <div class="controls">\n' +
+        '      <span style="color:var(--text-muted);font-size:0.8rem;">' + escapeHtml(new Date().toISOString()) + " · " + items.length + ' items</span>\n' +
+        '    </div>\n' +
+        '  </header>\n' +
+        '  <div id="timeline" style="height:auto;overflow:visible;padding:1.25rem;">\n' + rows + '\n  </div>\n' +
+        '  <script>\n' +
+        '    document.addEventListener("click", function(e) {\n' +
+        '      var header = e.target.closest(".event-header");\n' +
+        '      if (!header) return;\n' +
+        '      var row = header.closest(".event-row");\n' +
+        '      var payload = row.querySelector(".event-payload");\n' +
+        '      if (!payload) return;\n' +
+        '      var expanded = payload.style.display === "block";\n' +
+        '      payload.style.display = expanded ? "none" : "block";\n' +
+        '      row.classList.toggle("expanded", !expanded);\n' +
+        '      var btn = header.querySelector(".expand-btn");\n' +
+        '      if (btn) btn.textContent = expanded ? "▸" : "▾";\n' +
+        '    });\n' +
+        '  </scr' + 'ipt>\n' +
+        '</body>\n' +
+        '</html>'
+      );
+    }
+
+    function generateMarkdownExport(items) {
+      const lines = [
+        "# Agent Loop Debugger Export",
+        "",
+        `Exported ${new Date().toISOString()} — ${items.length} visible items.`,
+        "",
+        "| Time | Category | Type | Summary |",
+        "|------|----------|------|---------|",
+      ];
+      for (const item of items) {
+        let time, category, type, summary;
+        if (item.kind === "event") {
+          const e = item.event;
+          time = formatTime(e.timestamp);
+          category = e.category;
+          type = escapeMd(e.type);
+          summary = escapeMd(e.summary);
+        } else {
+          time = `${formatTime(item.startTimestamp)}–${formatTime(item.endTimestamp)}`;
+          category = "prompt";
+          type = escapeMd(`message_update × ${item.events.length} (${item.deltaType})`);
+          summary = escapeMd(item.summary);
+        }
+        lines.push(`| ${time} | ${category} | ${type} | ${summary} |`);
+      }
+      return lines.join("\n");
+    }
+
+    function download(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
     exportBtn.addEventListener("click", async () => {
       try {
         const res = await fetch("/api/events");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
+
+        // Re-hydrate with the same derived metadata used by the UI.
+        const hydrated = [];
+        for (let i = 0; i < data.length; i++) {
+          const event = data[i];
+          let payloadString;
+          try {
+            payloadString = JSON.stringify(event.payload);
+          } catch {
+            payloadString = "";
+          }
+          const payloadSize = new TextEncoder().encode(payloadString).length;
+          const latency = i > 0 ? event.timestamp - data[i - 1].timestamp : null;
+          hydrated.push({ ...event, _payloadString: payloadString, payloadSize, latency });
+        }
+
+        const exportAnchor = hydrated.length > 0 ? hydrated[hydrated.length - 1].timestamp : Date.now();
+        const filtered = hydrated.filter((e) => eventMatchesFilters(e, exportAnchor));
+        const items = (() => {
+          if (!compactDeltas) return filtered.map((e) => ({ kind: "event", id: e.id, event: e }));
+          const out = [];
+          let run = [];
+          let runType = null;
+          function flush() {
+            if (run.length >= 3) out.push(createGroupItem(run, runType));
+            else for (const e of run) out.push({ kind: "event", id: e.id, event: e });
+            run = [];
+            runType = null;
+          }
+          for (const event of filtered) {
+            if (event.type === "message_update") {
+              const dt = getDeltaType(event);
+              if (dt === runType) run.push(event);
+              else { flush(); run = [event]; runType = dt; }
+            } else {
+              flush();
+              out.push({ kind: "event", id: event.id, event: event });
+            }
+          }
+          flush();
+          return out;
+        })();
+
         const ts = new Date().toISOString().replace(/[:.]/g, "-");
-        a.href = url;
-        a.download = `agent-loop-trace-${ts}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        const format = exportFormat.value;
+
+        if (format === "json") {
+          const payload = items.map(toExportItem);
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+          download(blob, `agent-loop-trace-${ts}.json`);
+        } else if (format === "html") {
+          const html = generateHtmlExport(items);
+          const blob = new Blob([html], { type: "text/html" });
+          download(blob, `agent-loop-trace-${ts}.html`);
+        } else if (format === "markdown") {
+          const md = generateMarkdownExport(items);
+          const blob = new Blob([md], { type: "text/markdown" });
+          download(blob, `agent-loop-trace-${ts}.md`);
+        }
       } catch (err) {
         console.error("[agent-loop-debugger] Export failed:", err);
         alert("Export failed: " + err.message);
@@ -616,11 +1361,15 @@
 
     // Clear display
     clearBtn.addEventListener("click", () => {
-      timeline.querySelectorAll(".event-row").forEach((row) => row.remove());
-      eventsReceived = 0;
-      eventCountLabel.textContent = "0 events";
+      allEvents.length = 0;
+      itemElements.forEach((el) => el.remove());
+      itemElements.clear();
       expandedEventIds.clear();
-      renderedEventIds.clear();
+      expandedGroupIds.clear();
+      visibleTypes.clear();
+      typeCounts.clear();
+      renderTypeFilter();
+      updateCategoryCounts();
       emptyState.classList.remove("hidden");
       updateScrollHint();
     });

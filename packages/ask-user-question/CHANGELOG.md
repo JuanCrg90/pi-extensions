@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-06
+
+### Fixed
+- Declare `@sinclair/typebox` as a peer dependency (`*`) instead of a regular
+  dependency to avoid Pi's extension-loader warning about duplicate host-provided
+  packages.
+
 ## [1.0.0] - 2026-07-10
 
 ### Added

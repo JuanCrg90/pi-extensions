@@ -23,39 +23,17 @@
  *   Omit the file or the key to default to `true`. Set `false` to hide.
  */
 
-import type { ExtensionAPI, AssistantMessageEvent } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
 import {
   Container,
   Text,
   type Component,
-  matchesKey,
-  Key,
   truncateToWidth,
 } from "@earendil-works/pi-tui";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-
-// ─── Types ─────────────────────────────────────────────────────────────
-type SetWidgetFn = (
-  key: string,
-  content: string[] | Component | ((tui: unknown, theme: { fg: (c: string, s: string) => string }) => Component),
-) => void;
-
-interface RateData {
-  currentRate: number;
-  avgRate: number;
-  tokens: number;
-  elapsed: number;
-}
-
-interface FinalData {
-  tokens: number;
-  time: number;
-  avgRate: number;
-  sessionTotal: number;
-}
 
 // ─── Utility ───────────────────────────────────────────────────────────
 const CHARS_PER_TOKEN = 4;
@@ -95,12 +73,12 @@ const config: TokenRateConfig = loadConfig();
 let widgetVisible = config.widgetVisible ?? true;
 let streamingActive = false;
 
-function clearWidget(ctx: { ui: { setWidget: SetWidgetFn } }): void {
+function clearWidget(ctx: ExtensionContext): void {
   ctx.ui.setWidget("token-rate", []);
   widgetVisible = false;
 }
 
-function toggleWidget(ctx: { ui: { setWidget: SetWidgetFn } }): boolean {
+function toggleWidget(ctx: ExtensionContext): boolean {
   widgetVisible = !widgetVisible;
   if (!widgetVisible) {
     ctx.ui.setWidget("token-rate", []);
@@ -125,7 +103,7 @@ function toggleWidget(ctx: { ui: { setWidget: SetWidgetFn } }): boolean {
  */
 function createTokenRateWidget(
   _tui: unknown,
-  theme: { fg: (c: string, s: string) => string },
+  theme: Theme,
   title: string,
   lines: string[],
 ): Component {
@@ -170,27 +148,6 @@ function createTokenRateWidget(
   };
 }
 
-// ─── Widget builders ──────────────────────────────────────────────────
-function buildLiveWidget(data: RateData): Component {
-  const lines = [
-    `Current:  ${data.currentRate.toFixed(1)} tok/s`,
-    `Average:  ${data.avgRate.toFixed(1)} tok/s`,
-    `Tokens:   ${data.tokens}`,
-    `Elapsed:  ${formatMs(data.elapsed)}`,
-  ];
-  return createTokenRateWidget(null, null as any, "⚡ Token Rate", lines);
-}
-
-function buildFinalWidget(data: FinalData): Component {
-  const lines = [
-    `Total:    ${data.tokens} tokens`,
-    `Time:     ${formatMs(data.time)}`,
-    `Avg rate: ${data.avgRate.toFixed(1)} tok/s`,
-    `Session:  ${data.sessionTotal} tokens`,
-  ];
-  return createTokenRateWidget(null, null as any, "⚡ Token Rate", lines);
-}
-
 // ─── Extension ────────────────────────────────────────────────────────
 interface RateTracker {
   startTime: number;
@@ -201,12 +158,14 @@ interface RateTracker {
 
 let tracker: RateTracker | null = null;
 let streamingText = "";
+let streamingThinking = "";
 let sessionTotalTokens = 0;
 
 export default function (pi: ExtensionAPI): void {
   pi.on("message_start", (event) => {
     if (event.message.role === "assistant") {
       streamingText = "";
+      streamingThinking = "";
       tracker = null;
       streamingActive = true;
     }
@@ -215,10 +174,15 @@ export default function (pi: ExtensionAPI): void {
   pi.on("message_update", async (_event, ctx) => {
     if (_event.message.role !== "assistant") return;
 
-    const deltaEvent = _event.assistantMessageEvent as AssistantMessageEvent;
-    if (deltaEvent.type !== "text_delta") return;
+    const deltaEvent = _event.assistantMessageEvent;
+    if (
+      deltaEvent.type !== "text_delta" &&
+      deltaEvent.type !== "thinking_delta"
+    ) {
+      return;
+    }
 
-    const text = (deltaEvent as { delta?: string }).delta || "";
+    const text = deltaEvent.delta || "";
     if (!text) return;
 
     if (!tracker) {
@@ -230,27 +194,39 @@ export default function (pi: ExtensionAPI): void {
       };
     }
 
-    streamingText += text;
-    const estimatedTokens = Math.max(1, Math.ceil(streamingText.length / CHARS_PER_TOKEN));
+    const currentTracker = tracker;
+
+    if (deltaEvent.type === "thinking_delta") {
+      streamingThinking += text;
+    } else {
+      streamingText += text;
+    }
+
+    const textTokens = Math.max(0, Math.ceil(streamingText.length / CHARS_PER_TOKEN));
+    const thinkingTokens = Math.max(
+      0,
+      Math.ceil(streamingThinking.length / CHARS_PER_TOKEN),
+    );
+    const estimatedTokens = Math.max(1, textTokens + thinkingTokens);
 
     // Prefer model-provided usage if available
-    const totalUsage = (_event.message.usage as { total?: number } | undefined)?.total;
+    const usageOutput = _event.message.usage?.output;
     const effectiveTokens =
-      totalUsage && totalUsage > estimatedTokens ? totalUsage : estimatedTokens;
+      usageOutput && usageOutput > estimatedTokens ? usageOutput : estimatedTokens;
 
     const now = Date.now();
-    const tokenDelta = effectiveTokens - tracker.lastTokens;
-    const timeDeltaMs = now - tracker.lastTime;
+    const tokenDelta = effectiveTokens - currentTracker.lastTokens;
+    const timeDeltaMs = now - currentTracker.lastTime;
 
     if (tokenDelta > 0 && timeDeltaMs > 0) {
       const instantRate = (tokenDelta / timeDeltaMs) * 1000;
-      tracker.currentRate = tracker.currentRate * 0.6 + instantRate * 0.4;
+      currentTracker.currentRate = currentTracker.currentRate * 0.6 + instantRate * 0.4;
     }
 
-    tracker.lastTokens = effectiveTokens;
-    tracker.lastTime = now;
+    currentTracker.lastTokens = effectiveTokens;
+    currentTracker.lastTime = now;
 
-    const elapsed = now - tracker.startTime;
+    const elapsed = now - currentTracker.startTime;
     const avgRate = elapsed > 0 ? (effectiveTokens / elapsed) * 1000 : 0;
 
     if (widgetVisible) {
@@ -259,9 +235,10 @@ export default function (pi: ExtensionAPI): void {
         "token-rate",
         (tui, theme) =>
           createTokenRateWidget(tui, theme, "⚡ Token Rate", [
-            `Current:  ${tracker.currentRate.toFixed(1)} tok/s`,
-            `Average:  ${avgRate.toFixed(1)} tok/s`,
-            `Tokens:   ${effectiveTokens}`,
+            `Current:  ${currentTracker.currentRate.toFixed(1)} tok/s`,
+            `Output:   ${textTokens}`,
+            `Thinking: ${thinkingTokens}`,
+            `Total:    ${effectiveTokens}`,
             `Elapsed:  ${formatMs(elapsed)}`,
           ]),
       );
@@ -275,9 +252,36 @@ export default function (pi: ExtensionAPI): void {
     streamingActive = false;
 
     const totalTime = Date.now() - tracker.startTime;
+    const rawTextTokens = Math.max(
+      0,
+      Math.ceil(streamingText.length / CHARS_PER_TOKEN),
+    );
+    const rawThinkingTokens = Math.max(
+      0,
+      Math.ceil(streamingThinking.length / CHARS_PER_TOKEN),
+    );
+    const rawTotal = rawTextTokens + rawThinkingTokens;
+    const usageOutput = event.message.usage?.output;
     const totalTokens =
-      event.message.usage?.total ??
-      Math.ceil(streamingText.length / CHARS_PER_TOKEN);
+      usageOutput && usageOutput > rawTotal ? usageOutput : rawTotal;
+
+    // If the model reported a larger total, scale our output/thinking split
+    // proportionally so the summary adds up to the reported number.
+    let outputTokens = rawTextTokens;
+    let thinkingTokens = rawThinkingTokens;
+    if (usageOutput && usageOutput > rawTotal) {
+      const scale = usageOutput / rawTotal;
+      outputTokens = Math.round(rawTextTokens * scale);
+      thinkingTokens = Math.round(rawThinkingTokens * scale);
+    }
+
+    // Providers that expose a reasoning breakdown give us exact thinking tokens.
+    const reasoning = event.message.usage?.reasoning;
+    if (reasoning && reasoning > 0 && reasoning <= totalTokens) {
+      thinkingTokens = reasoning;
+      outputTokens = totalTokens - thinkingTokens;
+    }
+
     const avgRate = totalTime > 0 ? (totalTokens / totalTime) * 1000 : 0;
 
     // Accumulate session total
@@ -288,7 +292,9 @@ export default function (pi: ExtensionAPI): void {
         "token-rate",
         (tui, theme) =>
           createTokenRateWidget(tui, theme, "⚡ Token Rate", [
-            `Total:    ${totalTokens} tokens`,
+            `Output:   ${outputTokens}`,
+            `Thinking: ${thinkingTokens}`,
+            `Total:    ${totalTokens}`,
             `Time:     ${formatMs(totalTime)}`,
             `Avg rate: ${avgRate.toFixed(1)} tok/s`,
             `Session:  ${sessionTotalTokens} tokens`,

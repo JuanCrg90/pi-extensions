@@ -11,8 +11,9 @@ https://github.com/user-attachments/assets/fa5dcd89-fc8f-4aa8-a553-7423d2c00109
 ## ✨ Features
 
 -   **Live Metrics**: Displays current throughput (tokens/sec) and cumulative averages while the model is streaming.
+-   **Thinking Tokens**: Counts `thinking_delta` events separately from output tokens, so the meter keeps running while the model is reasoning and the final summary shows how many tokens were spent thinking vs. responding.
 -   **Smooth Tracking**: Uses a weighted moving average to provide a stable "current speed" even during network fluctuations or inference spikes.
--   **Summary View**: Automatically switches to a detailed summary at the end of each message, showing total tokens used and actual elapsed time.
+-   **Summary View**: Automatically switches to a detailed summary at the end of each message, showing output tokens, thinking tokens, total tokens used, and actual elapsed time.
 -   **Native TUI Integration**: Built using official `@earendil-works/pi-tui` components (`DynamicBorder`, `Container`, `Text`), ensuring perfect theme compatibility.
 -   **Easy Toggle**: Quickly show or hide the stats with a hotkey (or slash command) to keep your workspace clean when not needed.
 
@@ -89,9 +90,10 @@ Toggle the visibility of the performance dashboard:
 
 ### Visuals
 When active, you will see a styled box above or below the main interaction area showing:
-- **Current**: The current flow speed.
-- **Average**: Overall average of the current response.
-- **Tokens**: Total tokens in the current turn.
+- **Current**: The current combined flow speed.
+- **Output**: Tokens emitted as visible model text.
+- **Thinking**: Tokens emitted during reasoning/thinking blocks.
+- **Total**: Combined output + thinking tokens in the current turn.
 - **Elapsed/Summary**: Time elapsed and session totals after completion.
 
 ## 🏗 Package Structure

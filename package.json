@@ -23,7 +23,8 @@
     "publish:nightfox-themes": "pnpm --filter @juancrg90/nightfox-themes publish --access public",
     "publish:ask-user-question": "pnpm --filter @juancrg90/ask-user-question publish --access public",
     "publish:todo-widget": "pnpm --filter @juancrg90/todo-widget publish --access public",
-    "publish:context-bar": "pnpm --filter @juancrg90/context-bar publish --access public"
+    "publish:context-bar": "pnpm --filter @juancrg90/context-bar publish --access public",
+    "publish:agent-loop-debugger": "pnpm --filter @juancrg90/agent-loop-debugger publish --access public"
   },
   "workspaces": [
     "packages/*"

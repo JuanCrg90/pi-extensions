@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Loop Debugger</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0c0f;
+      --surface: #15171c;
+      --surface-hover: #1e2028;
+      --border: #2a2d36;
+      --text: #e6e6e6;
+      --text-muted: #9aa0a6;
+      --accent: #7ee787;
+      --danger: #f28b82;
+      --warning: #fdd663;
+      --category-session: #c58af9;
+      --category-agent: #79c0ff;
+      --category-prompt: #ffd60a;
+      --category-tool: #7ee787;
+      --category-provider: #ffa657;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .title::before {
+      content: "";
+      display: inline-block;
+      width: 0.6rem;
+      height: 0.6rem;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .category-toggle {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      padding: 0.35rem 0.6rem;
+      border-radius: 0.35rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .category-toggle:hover {
+      background: var(--surface-hover);
+    }
+
+    .category-toggle[data-category="session"] { --cat: var(--category-session); }
+    .category-toggle[data-category="agent"]   { --cat: var(--category-agent); }
+    .category-toggle[data-category="prompt"]  { --cat: var(--category-prompt); }
+    .category-toggle[data-category="tool"]    { --cat: var(--category-tool); }
+    .category-toggle[data-category="provider"]{ --cat: var(--category-provider); }
+
+    .category-toggle::before {
+      content: "";
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      background: var(--cat);
+    }
+
+    .category-toggle.hidden {
+      opacity: 0.45;
+      border-style: dashed;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0.35rem 0.7rem;
+      border-radius: 0.35rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--surface-hover);
+    }
+
+    .btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Status bar */
+    .status-bar {
+      padding: 0.5rem 1.25rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .status-dot.connecting { background: var(--warning); }
+    .status-dot.connected  { background: var(--accent); }
+    .status-dot.error      { background: var(--danger); }
+
+    /* Timeline */
+    #timeline {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.75rem 1.25rem;
+      scroll-behavior: smooth;
+    }
+
+    .event-row {
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      margin-bottom: 0.5rem;
+      overflow: hidden;
+      background: var(--surface);
+      transition: border-color 0.15s;
+    }
+
+    .event-row:hover {
+      border-color: #3c404d;
+    }
+
+    .event-row.expanded {
+      border-color: #3c404d;
+    }
+
+    .event-header {
+      display: grid;
+      grid-template-columns: auto auto 1fr auto;
+      gap: 0.75rem;
+      align-items: center;
+      padding: 0.6rem 0.85rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .event-timestamp {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 5.5rem;
+    }
+
+    .event-category {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 0.15rem 0.4rem;
+      border-radius: 0.25rem;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--cat);
+      white-space: nowrap;
+    }
+
+    .event-row[data-category="session"]  { --cat: var(--category-session); }
+    .event-row[data-category="agent"]    { --cat: var(--category-agent); }
+    .event-row[data-category="prompt"]   { --cat: var(--category-prompt); }
+    .event-row[data-category="tool"]     { --cat: var(--category-tool); }
+    .event-row[data-category="provider"] { --cat: var(--category-provider); }
+
+    .event-type {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 16rem;
+    }
+
+    .event-summary {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .event-payload {
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+      padding: 0.85rem;
+      overflow-x: auto;
+    }
+
+    .event-payload pre {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .json-key         { color: #79c0ff; }
+    .json-string       { color: #a5d6ff; }
+    .json-number       { color: #79c0ff; }
+    .json-bool         { color: #56d364; }
+    .json-null         { color: #ff7b72; }
+    .json-punctuation  { color: #c9d1d9; }
+
+    .empty-state {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 3rem 1rem;
+      font-size: 0.9rem;
+    }
+
+    .empty-state.hidden {
+      display: none;
+    }
+
+    /* Scroll-to-bottom hint */
+    .scroll-hint {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.35rem;
+      padding: 0.4rem 0.7rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: none;
+    }
+
+    .scroll-hint.visible {
+      display: block;
+    }
+
+    @media (max-width: 800px) {
+      .event-header {
+        grid-template-columns: auto 1fr;
+        gap: 0.4rem 0.75rem;
+      }
+      .event-summary {
+        grid-column: 1 / -1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">Agent Loop Debugger</div>
+    <div class="controls">
+      <button class="category-toggle" data-category="session">session</button>
+      <button class="category-toggle" data-category="agent">agent</button>
+      <button class="category-toggle" data-category="prompt">prompt</button>
+      <button class="category-toggle" data-category="tool">tool</button>
+      <button class="category-toggle" data-category="provider">provider</button>
+      <button class="btn" id="autoscroll-toggle" title="Pause/resume auto-scroll">Auto-scroll: on</button>
+      <button class="btn" id="export-btn" title="Download buffered events as JSON">Export trace</button>
+      <button class="btn" id="clear-btn" title="Clear the timeline display">Clear</button>
+    </div>
+  </header>
+
+  <div class="status-bar">
+    <span class="status-dot connecting" id="status-dot"></span>
+    <span id="status-text">Connecting…</span>
+    <span id="event-count">0 events</span>
+  </div>
+
+  <div id="timeline">
+    <div class="empty-state" id="empty-state">Waiting for events…</div>
+  </div>
+
+  <div class="scroll-hint" id="scroll-hint">New events below ↓</div>
+
+  <script>
+    const timeline = document.getElementById("timeline");
+    const emptyState = document.getElementById("empty-state");
+    const statusDot = document.getElementById("status-dot");
+    const statusText = document.getElementById("status-text");
+    const eventCountLabel = document.getElementById("event-count");
+    const autoscrollBtn = document.getElementById("autoscroll-toggle");
+    const exportBtn = document.getElementById("export-btn");
+    const clearBtn = document.getElementById("clear-btn");
+    const scrollHint = document.getElementById("scroll-hint");
+
+    const visibleCategories = new Set(["session", "agent", "prompt", "tool", "provider"]);
+    let autoScroll = true;
+    let eventsReceived = 0;
+    let expandedEventIds = new Set();
+    let renderedEventIds = new Set();
+    let lastScrollHeight = 0;
+
+    const events = new EventSource("/events");
+
+    function setStatus(state, text) {
+      statusDot.className = "status-dot " + state;
+      statusText.textContent = text;
+    }
+
+    function formatTime(timestamp) {
+      const d = new Date(timestamp);
+      const pad = (n) => String(n).padStart(2, "0");
+      const ms = String(d.getMilliseconds()).padStart(3, "0");
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${ms}`;
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function appendTextNode(parent, text) {
+      parent.appendChild(document.createTextNode(text));
+    }
+
+    function appendSpan(parent, className, text) {
+      const span = document.createElement("span");
+      span.className = className;
+      span.textContent = text;
+      parent.appendChild(span);
+    }
+
+    function renderJsonPayload(container, json) {
+      let str;
+      try {
+        str = JSON.stringify(json, null, 2);
+      } catch {
+        str = "[unstringifiable]";
+      }
+
+      const pre = document.createElement("pre");
+      let i = 0;
+
+      while (i < str.length) {
+        const ch = str[i];
+
+        // String literal
+        if (ch === '"') {
+          let end = i + 1;
+          while (end < str.length) {
+            if (str[end] === '\\' && end + 1 < str.length) {
+              end += 2;
+            } else if (str[end] === '"') {
+              end++;
+              break;
+            } else {
+              end++;
+            }
+          }
+          const token = str.slice(i, end);
+          // Keys are strings immediately followed by ':' (allowing whitespace)
+          const nextNonSpace = str.slice(end).match(/^\s*/);
+          const isKey = str[end + (nextNonSpace ? nextNonSpace[0].length : 0)] === ":";
+          appendSpan(pre, isKey ? "json-key" : "json-string", token);
+          i = end;
+          continue;
+        }
+
+        // Number
+        if (/[-\d]/.test(ch)) {
+          const match = str.slice(i).match(/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/);
+          if (match) {
+            appendSpan(pre, "json-number", match[0]);
+            i += match[0].length;
+            continue;
+          }
+        }
+
+        // true / false / null
+        const wordMatch = str.slice(i).match(/^(true|false|null)\b/);
+        if (wordMatch) {
+          const cls = wordMatch[1] === "null" ? "json-null" : "json-bool";
+          appendSpan(pre, cls, wordMatch[0]);
+          i += wordMatch[0].length;
+          continue;
+        }
+
+        // Punctuation
+        if (/[{}[\],:]/.test(ch)) {
+          appendSpan(pre, "json-punctuation", ch);
+          i++;
+          continue;
+        }
+
+        // Whitespace / anything else
+        appendTextNode(pre, ch);
+        i++;
+      }
+
+      container.innerHTML = "";
+      container.appendChild(pre);
+    }
+
+    function isNearBottom() {
+      const threshold = 60;
+      return timeline.scrollHeight - timeline.scrollTop - timeline.clientHeight < threshold;
+    }
+
+    function scrollToBottom() {
+      timeline.scrollTop = timeline.scrollHeight;
+      lastScrollHeight = timeline.scrollHeight;
+    }
+
+    function updateScrollHint() {
+      if (!autoScroll && !isNearBottom()) {
+        scrollHint.classList.add("visible");
+      } else {
+        scrollHint.classList.remove("visible");
+      }
+    }
+
+    function createEventRow(event) {
+      const row = document.createElement("div");
+      row.className = "event-row";
+      row.dataset.category = event.category;
+      row.dataset.id = event.id;
+      if (expandedEventIds.has(event.id)) {
+        row.classList.add("expanded");
+      }
+
+      const header = document.createElement("div");
+      header.className = "event-header";
+      header.innerHTML = `
+        <span class="event-timestamp" title="${new Date(event.timestamp).toISOString()}">${formatTime(event.timestamp)}</span>
+        <span class="event-category">${event.category}</span>
+        <span class="event-type">${escapeHtml(event.type)}</span>
+        <span class="event-summary">${escapeHtml(event.summary)}</span>
+      `;
+
+      header.addEventListener("click", () => {
+        const payload = row.querySelector(".event-payload");
+        row.classList.toggle("expanded");
+        if (row.classList.contains("expanded")) {
+          expandedEventIds.add(event.id);
+          payload.style.display = "block";
+          if (!payload.hasChildNodes()) {
+            renderJsonPayload(payload, event.payload);
+          }
+        } else {
+          expandedEventIds.delete(event.id);
+          payload.style.display = "none";
+        }
+      });
+
+      const payload = document.createElement("div");
+      payload.className = "event-payload";
+      payload.style.display = expandedEventIds.has(event.id) ? "block" : "none";
+      if (expandedEventIds.has(event.id)) {
+        renderJsonPayload(payload, event.payload);
+      }
+
+      row.appendChild(header);
+      row.appendChild(payload);
+      return row;
+    }
+
+    function applyFilters() {
+      const rows = timeline.querySelectorAll(".event-row");
+      for (const row of rows) {
+        row.style.display = visibleCategories.has(row.dataset.category) ? "" : "none";
+      }
+    }
+
+    function renderEvent(event) {
+      if (renderedEventIds.has(event.id)) {
+        return;
+      }
+      renderedEventIds.add(event.id);
+
+      emptyState.classList.add("hidden");
+      eventsReceived++;
+      eventCountLabel.textContent = `${eventsReceived} event${eventsReceived === 1 ? "" : "s"}`;
+
+      const row = createEventRow(event);
+      if (!visibleCategories.has(event.category)) {
+        row.style.display = "none";
+      }
+      timeline.appendChild(row);
+
+      if (autoScroll && isNearBottom()) {
+        scrollToBottom();
+      } else {
+        updateScrollHint();
+      }
+    }
+
+    events.addEventListener("open", () => {
+      setStatus("connected", "Connected — listening for events");
+    });
+
+    events.addEventListener("message", (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        renderEvent(data);
+      } catch (err) {
+        console.warn("[agent-loop-debugger] Failed to parse event:", event.data, err);
+      }
+    });
+
+    events.addEventListener("error", () => {
+      if (events.readyState === EventSource.CONNECTING) {
+        setStatus("connecting", "Reconnecting…");
+      } else if (events.readyState === EventSource.CLOSED) {
+        setStatus("error", "Connection lost");
+      }
+    });
+
+    // Category toggles
+    document.querySelectorAll(".category-toggle").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const category = btn.dataset.category;
+        if (visibleCategories.has(category)) {
+          visibleCategories.delete(category);
+          btn.classList.add("hidden");
+        } else {
+          visibleCategories.add(category);
+          btn.classList.remove("hidden");
+        }
+        applyFilters();
+      });
+    });
+
+    // Auto-scroll toggle
+    autoscrollBtn.addEventListener("click", () => {
+      autoScroll = !autoScroll;
+      autoscrollBtn.textContent = `Auto-scroll: ${autoScroll ? "on" : "off"}`;
+      autoscrollBtn.classList.toggle("active", !autoScroll);
+      if (autoScroll) {
+        scrollToBottom();
+      }
+      updateScrollHint();
+    });
+
+    // Export trace
+    exportBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/events");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        a.href = url;
+        a.download = `agent-loop-trace-${ts}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error("[agent-loop-debugger] Export failed:", err);
+        alert("Export failed: " + err.message);
+      }
+    });
+
+    // Clear display
+    clearBtn.addEventListener("click", () => {
+      timeline.querySelectorAll(".event-row").forEach((row) => row.remove());
+      eventsReceived = 0;
+      eventCountLabel.textContent = "0 events";
+      expandedEventIds.clear();
+      renderedEventIds.clear();
+      emptyState.classList.remove("hidden");
+      updateScrollHint();
+    });
+
+    // Scroll hint click
+    scrollHint.addEventListener("click", () => {
+      autoScroll = true;
+      autoscrollBtn.textContent = "Auto-scroll: on";
+      autoscrollBtn.classList.remove("active");
+      scrollToBottom();
+      updateScrollHint();
+    });
+
+    // Pause auto-scroll when user scrolls up manually
+    timeline.addEventListener("scroll", () => {
+      if (timeline.scrollHeight !== lastScrollHeight) {
+        updateScrollHint();
+      }
+    });
+
+    // Keyboard shortcut: space toggles auto-scroll
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && e.target === document.body) {
+        e.preventDefault();
+        autoscrollBtn.click();
+      }
+    });
+  </script>
+</body>
+</html>

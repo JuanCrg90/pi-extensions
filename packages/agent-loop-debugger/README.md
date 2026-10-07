@@ -30,6 +30,15 @@ The command toggles the debugger server on and off. When started, it prints a
 local URL such as `http://127.0.0.1:54321`. Open that URL in a browser to see
 live events.
 
+### Commands
+
+- `/agentloop` — start or stop the debugger server.
+- `/agentloop list` — list saved trace files with index, timestamp, and event count.
+- `/agentloop load <index|filename>` — load a saved trace into the timeline.
+
+Traces are auto-saved to `~/.pi/agent/agent-loop-debugger/traces/` on every
+`session_shutdown` and when the server stops.
+
 ### Webapp controls
 
 - **Category toggles** — show or hide events by category.
@@ -39,8 +48,34 @@ live events.
 - **Compact deltas** — collapse 3+ consecutive `message_update` events of the same delta type into a single compact row. Click the row (or the expand arrow) to inspect every individual delta.
 - **Visible metadata** — each row shows the latency since the previous event and the stringified payload size. The status bar shows live counts for every category.
 - **Auto-scroll** — automatically scroll to the newest event; pause if you scroll up manually.
+- **Load trace** — load a previously saved trace from `~/.pi/agent/agent-loop-debugger/traces/` back into the timeline.
+- **State inspector** — open a side panel to inspect the current system prompt, active tools, and context usage.
 - **Export trace** — download the currently filtered view as JSON, a self-contained HTML timeline, or a Markdown table. The export respects category, type, search, time range, and compact-mode settings.
 - **Clear** — clear the timeline display without affecting the server buffer.
+
+## Trace persistence
+
+The event buffer is automatically persisted to disk as a JSON trace on
+`session_shutdown` and whenever the debugger server stops. Traces live in:
+
+```
+~/.pi/agent/agent-loop-debugger/traces/agent-loop-<timestamp>.json
+```
+
+Use `/agentloop list` to see saved traces and `/agentloop load <index|filename>`
+to replay one. The webapp also has a **Load trace** dropdown that lists and
+loads saved traces on demand.
+
+## State inspection
+
+The debugger captures Pi runtime state and exposes it through the webapp's
+**State** panel:
+
+- **System prompt** — the effective system prompt and the options used to build it.
+- **Tools** — all configured tools with descriptions, marked as active or inactive.
+- **Context usage** — current token count, context-window size, and usage percentage.
+
+State is refreshed automatically while the panel is open.
 
 ## Event categories
 

@@ -228,6 +228,308 @@
       padding: 0.25rem 0;
     }
 
+    .traces-dropdown {
+      position: relative;
+    }
+
+    .traces-popover {
+      position: absolute;
+      top: calc(100% + 0.35rem);
+      right: 0;
+      min-width: 16rem;
+      max-height: 60vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.35rem;
+      padding: 0.5rem;
+      z-index: 20;
+      display: none;
+    }
+
+    .traces-popover:not(.hidden) {
+      display: block;
+    }
+
+    .traces-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .trace-option {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+      color: var(--text);
+      padding: 0.35rem 0.45rem;
+      border-radius: 0.25rem;
+      background: transparent;
+      border: none;
+      text-align: left;
+      width: 100%;
+    }
+
+    .trace-option:hover {
+      background: var(--surface-hover);
+    }
+
+    .trace-option .trace-name {
+      font-weight: 500;
+    }
+
+    .trace-option .trace-meta {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+    }
+
+    .trace-empty {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      padding: 0.25rem 0;
+    }
+
+    /* State inspector panel */
+    .state-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(90vw, 32rem);
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(0);
+      transition: transform 0.2s ease;
+    }
+
+    .state-panel.hidden {
+      display: none;
+    }
+
+    .state-panel-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .state-panel-header h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .state-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 0.15rem 0.35rem;
+    }
+
+    .state-close:hover {
+      color: var(--text);
+    }
+
+    .state-tabs {
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+
+    .state-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.35rem 0.6rem;
+      border-radius: 0.35rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .state-tab:hover {
+      background: var(--surface-hover);
+    }
+
+    .state-tab.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .state-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.75rem 1rem;
+    }
+
+    .state-pane {
+      display: none;
+    }
+
+    .state-pane.active {
+      display: block;
+    }
+
+    .state-section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin: 0 0 0.5rem;
+    }
+
+    .state-prompt-wrap {
+      position: relative;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.35rem;
+      padding: 0.75rem;
+    }
+
+    .state-prompt-wrap pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.5;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 0.3rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    .copy-btn:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+
+    .tools-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .tool-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.35rem;
+      padding: 0.6rem 0.75rem;
+    }
+
+    .tool-name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .tool-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.1rem 0.35rem;
+      border-radius: 0.2rem;
+      background: rgba(126, 231, 135, 0.15);
+      color: var(--accent);
+    }
+
+    .tool-badge.inactive {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+    }
+
+    .tool-desc {
+      margin: 0.25rem 0 0;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .context-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .context-metric {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.35rem;
+      padding: 0.6rem;
+      text-align: center;
+    }
+
+    .context-metric-value {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .context-metric-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+    }
+
+    .progress-track {
+      height: 0.5rem;
+      background: var(--bg);
+      border-radius: 0.25rem;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.2s;
+    }
+
+    .state-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 40;
+      display: none;
+    }
+
+    .state-backdrop.visible {
+      display: block;
+    }
+
     /* Status bar */
     .status-bar {
       padding: 0.5rem 1.25rem;
@@ -492,6 +794,7 @@
       <button class="category-toggle" data-category="tool">tool</button>
       <button class="category-toggle" data-category="provider">provider</button>
       <button class="btn" id="autoscroll-toggle" title="Pause/resume auto-scroll">Auto-scroll: on</button>
+      <button class="btn" id="state-toggle" title="Open state inspector">State</button>
       <button class="btn" id="clear-btn" title="Clear the timeline display">Clear</button>
     </div>
   </header>
@@ -510,6 +813,14 @@
       <div id="types-popover" class="types-popover hidden">
         <div class="types-list" id="types-list">
           <div class="type-empty">No events yet</div>
+        </div>
+      </div>
+    </div>
+    <div class="traces-dropdown">
+      <button class="btn" id="traces-toggle">Load trace ▾</button>
+      <div id="traces-popover" class="traces-popover hidden">
+        <div class="traces-list" id="traces-list">
+          <div class="trace-empty">No saved traces</div>
         </div>
       </div>
     </div>
@@ -535,6 +846,55 @@
 
   <div class="scroll-hint" id="scroll-hint">New events below ↓</div>
 
+  <div class="state-backdrop" id="state-backdrop"></div>
+
+  <div id="state-panel" class="state-panel hidden">
+    <div class="state-panel-header">
+      <h3>State inspector</h3>
+      <button class="state-close" id="state-close" title="Close state inspector">×</button>
+    </div>
+    <div class="state-tabs">
+      <button class="state-tab active" data-tab="system-prompt">System prompt</button>
+      <button class="state-tab" data-tab="tools">Tools</button>
+      <button class="state-tab" data-tab="context">Context</button>
+    </div>
+    <div class="state-content">
+      <div id="state-pane-system-prompt" class="state-pane active">
+        <p class="state-section-title">Current effective system prompt</p>
+        <div class="state-prompt-wrap">
+          <button class="copy-btn" id="copy-system-prompt" title="Copy to clipboard">Copy</button>
+          <pre id="system-prompt-text">No system prompt captured yet.</pre>
+        </div>
+      </div>
+      <div id="state-pane-tools" class="state-pane">
+        <p class="state-section-title">Active tools</p>
+        <ul class="tools-list" id="tools-list">
+          <li class="trace-empty">No tool information available.</li>
+        </ul>
+      </div>
+      <div id="state-pane-context" class="state-pane">
+        <p class="state-section-title">Context usage</p>
+        <div class="context-metrics">
+          <div class="context-metric">
+            <div class="context-metric-value" id="context-tokens">—</div>
+            <div class="context-metric-label">Tokens</div>
+          </div>
+          <div class="context-metric">
+            <div class="context-metric-value" id="context-window">—</div>
+            <div class="context-metric-label">Window</div>
+          </div>
+          <div class="context-metric">
+            <div class="context-metric-value" id="context-percent">—</div>
+            <div class="context-metric-label">Percent</div>
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="context-progress"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const timeline = document.getElementById("timeline");
     const emptyState = document.getElementById("empty-state");
@@ -553,6 +913,22 @@
     const typesToggle = document.getElementById("types-toggle");
     const typesPopover = document.getElementById("types-popover");
     const typesList = document.getElementById("types-list");
+    const tracesToggle = document.getElementById("traces-toggle");
+    const tracesPopover = document.getElementById("traces-popover");
+    const tracesList = document.getElementById("traces-list");
+    const stateToggle = document.getElementById("state-toggle");
+    const statePanel = document.getElementById("state-panel");
+    const stateBackdrop = document.getElementById("state-backdrop");
+    const stateClose = document.getElementById("state-close");
+    const systemPromptText = document.getElementById("system-prompt-text");
+    const copySystemPrompt = document.getElementById("copy-system-prompt");
+    const toolsList = document.getElementById("tools-list");
+    const contextTokens = document.getElementById("context-tokens");
+    const contextWindow = document.getElementById("context-window");
+    const contextPercent = document.getElementById("context-percent");
+    const contextProgress = document.getElementById("context-progress");
+    const stateTabs = document.querySelectorAll(".state-tab");
+    const statePanes = document.querySelectorAll(".state-pane");
 
     const allEvents = [];
     const visibleCategories = new Set(["session", "agent", "prompt", "tool", "provider"]);
@@ -1389,6 +1765,169 @@
         updateScrollHint();
       }
     });
+
+    // Trace loader
+    async function fetchTraces() {
+      try {
+        const res = await fetch("/api/traces");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (err) {
+        console.error("[agent-loop-debugger] Failed to fetch traces:", err);
+        return [];
+      }
+    }
+
+    function renderTracesList(traces) {
+      tracesList.innerHTML = "";
+      if (!Array.isArray(traces) || traces.length === 0) {
+        tracesList.innerHTML = '<div class="trace-empty">No saved traces</div>';
+        return;
+      }
+      for (const trace of traces) {
+        const btn = document.createElement("button");
+        btn.className = "trace-option";
+        const when = new Date(trace.createdAt).toISOString();
+        btn.innerHTML = `
+          <span class="trace-name">${escapeHtml(trace.filename)}</span>
+          <span class="trace-meta">${escapeHtml(when)} · ${trace.eventCount} events</span>
+        `;
+        btn.addEventListener("click", () => loadTrace(trace.filename));
+        tracesList.appendChild(btn);
+      }
+    }
+
+    async function refreshTraces() {
+      const traces = await fetchTraces();
+      renderTracesList(traces);
+    }
+
+    async function loadTrace(filename) {
+      try {
+        const res = await fetch(`/api/traces/${encodeURIComponent(filename)}`, { method: "POST" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        tracesPopover.classList.add("hidden");
+        setStatus("connected", `Loaded trace ${filename} (${data.loaded} events)`);
+        setTimeout(() => setStatus("connected", "Connected — listening for events"), 2500);
+      } catch (err) {
+        console.error("[agent-loop-debugger] Failed to load trace:", err);
+        alert("Failed to load trace: " + err.message);
+      }
+    }
+
+    tracesToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      refreshTraces();
+      tracesPopover.classList.toggle("hidden");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!tracesPopover.contains(e.target) && e.target !== tracesToggle) {
+        tracesPopover.classList.add("hidden");
+      }
+    });
+
+    // State inspector
+    let stateRefreshTimer = null;
+
+    function openStatePanel() {
+      statePanel.classList.remove("hidden");
+      stateBackdrop.classList.add("visible");
+      stateToggle.classList.add("active");
+      refreshState();
+      if (!stateRefreshTimer) {
+        stateRefreshTimer = setInterval(refreshState, 2000);
+      }
+    }
+
+    function closeStatePanel() {
+      statePanel.classList.add("hidden");
+      stateBackdrop.classList.remove("visible");
+      stateToggle.classList.remove("active");
+      if (stateRefreshTimer) {
+        clearInterval(stateRefreshTimer);
+        stateRefreshTimer = null;
+      }
+    }
+
+    stateToggle.addEventListener("click", () => {
+      if (statePanel.classList.contains("hidden")) {
+        openStatePanel();
+      } else {
+        closeStatePanel();
+      }
+    });
+
+    stateClose.addEventListener("click", closeStatePanel);
+    stateBackdrop.addEventListener("click", closeStatePanel);
+
+    stateTabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        stateTabs.forEach((t) => t.classList.remove("active"));
+        statePanes.forEach((p) => p.classList.remove("active"));
+        tab.classList.add("active");
+        const pane = document.getElementById(`state-pane-${tab.dataset.tab}`);
+        if (pane) pane.classList.add("active");
+      });
+    });
+
+    copySystemPrompt.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(systemPromptText.textContent);
+        const original = copySystemPrompt.textContent;
+        copySystemPrompt.textContent = "Copied";
+        setTimeout(() => (copySystemPrompt.textContent = original), 1200);
+      } catch (err) {
+        console.error("[agent-loop-debugger] Copy failed:", err);
+      }
+    });
+
+    async function refreshState() {
+      try {
+        const [promptRes, toolsRes, contextRes] = await Promise.all([
+          fetch("/api/state/system-prompt"),
+          fetch("/api/state/tools"),
+          fetch("/api/state/context"),
+        ]);
+
+        if (promptRes.ok) {
+          const data = await promptRes.json();
+          systemPromptText.textContent = data.systemPrompt || "No system prompt captured yet.";
+        }
+
+        if (toolsRes.ok) {
+          const tools = await toolsRes.json();
+          toolsList.innerHTML = "";
+          if (!Array.isArray(tools) || tools.length === 0) {
+            toolsList.innerHTML = '<li class="trace-empty">No tool information available.</li>';
+          } else {
+            for (const tool of tools) {
+              const li = document.createElement("li");
+              li.className = "tool-item";
+              const badgeClass = tool.active ? "tool-badge" : "tool-badge inactive";
+              const badgeText = tool.active ? "active" : "inactive";
+              li.innerHTML = `
+                <span class="tool-name">${escapeHtml(tool.name)} <span class="${badgeClass}">${badgeText}</span></span>
+                <p class="tool-desc">${escapeHtml(tool.description || "No description.")}</p>
+              `;
+              toolsList.appendChild(li);
+            }
+          }
+        }
+
+        if (contextRes.ok) {
+          const usage = await contextRes.json();
+          contextTokens.textContent = usage.tokens == null ? "—" : usage.tokens.toLocaleString();
+          contextWindow.textContent = usage.contextWindow ? usage.contextWindow.toLocaleString() : "—";
+          contextPercent.textContent = usage.percent == null ? "—" : `${Math.round(usage.percent)}%`;
+          const pct = usage.percent == null ? 0 : Math.max(0, Math.min(100, usage.percent));
+          contextProgress.style.width = `${pct}%`;
+        }
+      } catch (err) {
+        console.error("[agent-loop-debugger] Failed to refresh state:", err);
+      }
+    }
 
     // Keyboard shortcut: space toggles auto-scroll
     document.addEventListener("keydown", (e) => {

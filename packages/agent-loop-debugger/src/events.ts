@@ -8,6 +8,7 @@ import type {
   BeforeAgentStartEvent,
   ContextEvent,
   ExtensionAPI,
+  ExtensionContext,
   MessageEndEvent,
   MessageStartEvent,
   MessageUpdateEvent,
@@ -245,11 +246,27 @@ export class RingBuffer<T> {
 
 // ─── Event collector ───────────────────────────────────────────────────
 
+export interface DebuggerState {
+  systemPrompt: string;
+  systemPromptOptions: unknown;
+  contextMessageCount: number;
+  ctx?: ExtensionContext;
+}
+
 export interface EventCollector {
   readonly events: RingBuffer<DebuggerEvent>;
   readonly bus: EventBus;
   register(pi: ExtensionAPI): void;
   reset(): void;
+}
+
+export function createDebuggerState(): DebuggerState {
+  return {
+    systemPrompt: "",
+    systemPromptOptions: undefined,
+    contextMessageCount: 0,
+    ctx: undefined,
+  };
 }
 
 export class EventBus {
@@ -273,7 +290,7 @@ export class EventBus {
   }
 }
 
-export function createEventCollector(bufferSize = 1000): EventCollector {
+export function createEventCollector(bufferSize = 1000, state?: DebuggerState): EventCollector {
   const events = new RingBuffer<DebuggerEvent>(bufferSize);
   const bus = new EventBus();
 
@@ -296,19 +313,40 @@ export function createEventCollector(bufferSize = 1000): EventCollector {
     bus.publish(event);
   }
 
+  function resetState(): void {
+    if (!state) return;
+    state.systemPrompt = "";
+    state.systemPromptOptions = undefined;
+    state.contextMessageCount = 0;
+    state.ctx = undefined;
+  }
+
   return {
     events,
     bus,
     register(pi: ExtensionAPI): void {
       pi.on("session_start", (event) => record("session_start", event));
       pi.on("session_shutdown", (event) => record("session_shutdown", event));
-      pi.on("before_agent_start", (event) => record("before_agent_start", event));
+      pi.on("before_agent_start", (event, ctx) => {
+        record("before_agent_start", event);
+        if (state) {
+          state.systemPrompt = event.systemPrompt;
+          state.systemPromptOptions = event.systemPromptOptions;
+          state.ctx = ctx;
+        }
+      });
       pi.on("agent_start", (event) => record("agent_start", event));
       pi.on("agent_end", (event) => record("agent_end", event));
       pi.on("agent_settled", (event) => record("agent_settled", event as AgentSettledEvent));
       pi.on("turn_start", (event) => record("turn_start", event));
       pi.on("turn_end", (event) => record("turn_end", event));
-      pi.on("context", (event) => record("context", event));
+      pi.on("context", (event, ctx) => {
+        record("context", event);
+        if (state) {
+          state.contextMessageCount = Array.isArray(event.messages) ? event.messages.length : 0;
+          state.ctx = ctx;
+        }
+      });
       pi.on("message_start", (event) => record("message_start", event));
       pi.on("message_update", (event) => record("message_update", event));
       pi.on("message_end", (event) => record("message_end", event));
@@ -323,6 +361,7 @@ export function createEventCollector(bufferSize = 1000): EventCollector {
     },
     reset(): void {
       events.clear();
+      resetState();
     },
   };
 }

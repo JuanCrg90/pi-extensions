@@ -17,7 +17,11 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
-import { createDebuggerState, createEventCollector } from "./events.ts";
+import {
+  createDebuggerState,
+  createEventCollector,
+  type DebuggerEventOrigin,
+} from "./events.ts";
 import { createDebugServer } from "./server.ts";
 import { getDefaultTraceDir, listTraces, loadTrace, saveTrace } from "./trace.ts";
 
@@ -25,11 +29,43 @@ import { getDefaultTraceDir, listTraces, loadTrace, saveTrace } from "./trace.ts
 
 const traceDir = getDefaultTraceDir();
 
+export interface HerdrContext {
+  active: boolean;
+  paneId?: string;
+  tabId?: string;
+  workspaceId?: string;
+}
+
+function readHerdrContext(): HerdrContext {
+  if (process.env.HERDR_ENV !== "1") {
+    return { active: false };
+  }
+  return {
+    active: true,
+    paneId: process.env.HERDR_PANE_ID,
+    tabId: process.env.HERDR_TAB_ID,
+    workspaceId: process.env.HERDR_WORKSPACE_ID,
+  };
+}
+
+function herdrLabel(ctx: HerdrContext): string {
+  if (!ctx.active) return "Herdr: not detected";
+  const parts: string[] = [];
+  if (ctx.workspaceId) parts.push(`w${ctx.workspaceId}`);
+  if (ctx.tabId) parts.push(`t${ctx.tabId}`);
+  if (ctx.paneId) parts.push(`p${ctx.paneId}`);
+  return parts.length > 0 ? `Herdr: ${parts.join(":")}` : "Herdr: active";
+}
+
 // ─── Command handler ───────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI): void {
   const state = createDebuggerState();
-  const collector = createEventCollector(1000, state);
+  const herdr = readHerdrContext();
+  const origin: DebuggerEventOrigin | undefined = herdr.active
+    ? { paneId: herdr.paneId, tabId: herdr.tabId, workspaceId: herdr.workspaceId }
+    : undefined;
+  const collector = createEventCollector(1000, state, origin);
   const server = createDebugServer(collector.events, collector.bus, { pi, state, traceDir });
 
   async function toggleServer(ctx: ExtensionCommandContext): Promise<void> {
@@ -40,8 +76,20 @@ export default function (pi: ExtensionAPI): void {
     }
 
     const url = await server.start();
-    ctx.ui.notify(`Agent loop debugger: ${url}`, "info");
-    console.log(`[agent-loop-debugger] ${url}`);
+    const herdrSuffix = herdr.active && herdr.paneId ? ` (Herdr pane ${herdr.paneId})` : "";
+    const msg = `Agent loop debugger: ${url}${herdrSuffix}`;
+    ctx.ui.notify(msg, "info");
+    console.log(`[agent-loop-debugger] ${msg}`);
+  }
+
+  async function herdrCommand(ctx: ExtensionCommandContext): Promise<void> {
+    const label = herdrLabel(herdr);
+    const details = herdr.active
+      ? `pane=${herdr.paneId ?? "—"}, tab=${herdr.tabId ?? "—"}, workspace=${herdr.workspaceId ?? "—"}`
+      : "No Herdr environment detected.";
+    const msg = `${label}\n${details}`;
+    ctx.ui.notify(msg, "info");
+    console.log(`[agent-loop-debugger] ${label} — ${details}`);
   }
 
   async function listTracesCommand(ctx: ExtensionCommandContext): Promise<void> {
@@ -108,6 +156,11 @@ export default function (pi: ExtensionAPI): void {
 
     if (!trimmed) {
       await toggleServer(ctx);
+      return;
+    }
+
+    if (trimmed === "--herdr") {
+      await herdrCommand(ctx);
       return;
     }
 

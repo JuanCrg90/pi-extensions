@@ -292,6 +292,47 @@
       padding: 0.25rem 0;
     }
 
+    .event-origin {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      border-radius: 0.25rem;
+      padding: 0.1rem 0.35rem;
+      white-space: nowrap;
+      cursor: help;
+    }
+
+    .origin-filter {
+      display: none;
+    }
+
+    .origin-filter.visible {
+      display: block;
+    }
+
+    .herdr-indicator {
+      display: none;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .herdr-indicator.visible {
+      display: inline-flex;
+    }
+
+    .herdr-indicator::before {
+      content: "";
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
     /* State inspector panel */
     .state-panel {
       position: fixed;
@@ -824,6 +865,9 @@
         </div>
       </div>
     </div>
+    <select id="origin-filter" class="origin-filter" title="Filter by Herdr origin pane">
+      <option value="all">All origins</option>
+    </select>
     <div class="spacer"></div>
     <select id="export-format" title="Export format">
       <option value="json">JSON</option>
@@ -837,6 +881,7 @@
     <span class="status-dot connecting" id="status-dot"></span>
     <span id="status-text">Connecting…</span>
     <span id="event-count">0 events</span>
+    <span id="herdr-indicator" class="herdr-indicator hidden" title="Herdr origin of latest event"></span>
     <div class="category-counts" id="category-counts"></div>
   </div>
 
@@ -929,12 +974,15 @@
     const contextProgress = document.getElementById("context-progress");
     const stateTabs = document.querySelectorAll(".state-tab");
     const statePanes = document.querySelectorAll(".state-pane");
+    const originFilter = document.getElementById("origin-filter");
+    const herdrIndicator = document.getElementById("herdr-indicator");
 
     const allEvents = [];
     const visibleCategories = new Set(["session", "agent", "prompt", "tool", "provider"]);
     const visibleTypes = new Set();
     const hiddenTypes = new Set();
     const typeCounts = new Map();
+    const discoveredPaneIds = new Set();
     const itemElements = new Map();
     const expandedEventIds = new Set();
     const expandedGroupIds = new Set();
@@ -944,6 +992,7 @@
     let searchTimer = null;
     let timeRange = "all";
     let compactDeltas = true;
+    let selectedOriginPane = "all";
     let lastScrollHeight = 0;
     let renderScheduled = false;
 
@@ -970,6 +1019,37 @@
     function formatBytes(n) {
       if (n < 1024) return `${n} B`;
       return `${(n / 1024).toFixed(1)} KB`;
+    }
+
+    function formatHerdrOrigin(origin) {
+      if (!origin) return "";
+      const parts = [];
+      if (origin.workspaceId) parts.push(`w${origin.workspaceId}`);
+      if (origin.tabId) parts.push(`t${origin.tabId}`);
+      if (origin.paneId) parts.push(`p${origin.paneId}`);
+      return parts.join(":");
+    }
+
+    function formatHerdrTooltip(origin) {
+      if (!origin) return "";
+      const lines = [];
+      if (origin.paneId) lines.push(`Pane: ${origin.paneId}`);
+      if (origin.tabId) lines.push(`Tab: ${origin.tabId}`);
+      if (origin.workspaceId) lines.push(`Workspace: ${origin.workspaceId}`);
+      return lines.join("\n");
+    }
+
+    function shortenPaneId(paneId) {
+      if (!paneId) return "?";
+      if (paneId.length <= 8) return paneId;
+      return paneId.slice(0, 6) + "…";
+    }
+
+    function originBadgeHtml(event) {
+      if (!event?.origin?.paneId) return "";
+      const label = escapeHtml(shortenPaneId(event.origin.paneId));
+      const tooltip = escapeHtml(formatHerdrTooltip(event.origin));
+      return `<span class="event-origin" title="${tooltip}">${label}</span>`;
     }
 
     function escapeHtml(str) {
@@ -1107,6 +1187,38 @@
       }
     }
 
+    function discoverOrigin(event) {
+      const paneId = event.origin?.paneId;
+      if (!paneId || discoveredPaneIds.has(paneId)) return;
+      discoveredPaneIds.add(paneId);
+      renderOriginFilter();
+    }
+
+    function renderOriginFilter() {
+      if (discoveredPaneIds.size === 0) {
+        originFilter.classList.remove("visible");
+        return;
+      }
+      const previous = originFilter.value;
+      originFilter.innerHTML = '<option value="all">All origins</option>';
+      for (const paneId of Array.from(discoveredPaneIds).sort()) {
+        const option = document.createElement("option");
+        option.value = paneId;
+        option.textContent = paneId;
+        originFilter.appendChild(option);
+      }
+      originFilter.value = discoveredPaneIds.has(previous) ? previous : "all";
+      selectedOriginPane = originFilter.value;
+      originFilter.classList.add("visible");
+    }
+
+    function updateHerdrIndicator(event) {
+      if (!event.origin) return;
+      herdrIndicator.classList.add("visible");
+      herdrIndicator.textContent = formatHerdrOrigin(event.origin);
+      herdrIndicator.title = formatHerdrTooltip(event.origin);
+    }
+
     function getTimeAnchor() {
       return allEvents.length > 0 ? allEvents[allEvents.length - 1].timestamp : Date.now();
     }
@@ -1125,6 +1237,9 @@
       if (timeRange !== "all") {
         const windows = { "30s": 30000, "1m": 60000, "5m": 300000 };
         if (event.timestamp < anchor - windows[timeRange]) return false;
+      }
+      if (selectedOriginPane !== "all") {
+        if (event.origin?.paneId !== selectedOriginPane) return false;
       }
       return true;
     }
@@ -1202,6 +1317,7 @@
       header.className = "event-header";
       header.innerHTML = `
         <span class="event-timestamp" title="${new Date(event.timestamp).toISOString()}">${formatTime(event.timestamp)}</span>
+        ${originBadgeHtml(event)}
         <span class="event-latency" title="Time since previous event">${formatLatency(event.latency)}</span>
         <span class="event-category">${event.category}</span>
         <span class="event-type">${escapeHtml(event.type)}</span>
@@ -1257,6 +1373,7 @@
       header.className = "event-header";
       header.innerHTML = `
         <span class="event-timestamp" title="${new Date(item.startTimestamp).toISOString()} – ${new Date(item.endTimestamp).toISOString()}">${formatTime(item.startTimestamp)}–${formatTime(item.endTimestamp)}</span>
+        ${originBadgeHtml(item.events[0])}
         <span class="event-latency" title="Time since previous event">${formatLatency(item.latency)}</span>
         <span class="event-category">prompt</span>
         <span class="event-type">message_update</span>
@@ -1441,6 +1558,8 @@
         const aug = augmentEvent(data);
         allEvents.push(aug);
         discoverType(aug.type);
+        discoverOrigin(aug);
+        updateHerdrIndicator(aug);
         updateCategoryCounts();
         scheduleRender();
       } catch (err) {
@@ -1502,6 +1621,12 @@
       compactDeltas = !compactDeltas;
       compactToggle.textContent = `Compact deltas: ${compactDeltas ? "on" : "off"}`;
       compactToggle.classList.toggle("active", compactDeltas);
+      scheduleRender();
+    });
+
+    // Origin pane filter
+    originFilter.addEventListener("change", () => {
+      selectedOriginPane = originFilter.value;
       scheduleRender();
     });
 
@@ -1744,6 +1869,11 @@
       expandedGroupIds.clear();
       visibleTypes.clear();
       typeCounts.clear();
+      discoveredPaneIds.clear();
+      selectedOriginPane = "all";
+      originFilter.innerHTML = '<option value="all">All origins</option>';
+      originFilter.classList.remove("visible");
+      herdrIndicator.classList.remove("visible");
       renderTypeFilter();
       updateCategoryCounts();
       emptyState.classList.remove("hidden");

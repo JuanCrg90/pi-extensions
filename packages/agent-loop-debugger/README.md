@@ -35,6 +35,7 @@ live events.
 - `/agentloop` — start or stop the debugger server.
 - `/agentloop list` — list saved trace files with index, timestamp, and event count.
 - `/agentloop load <index|filename>` — load a saved trace into the timeline.
+- `/agentloop --herdr` — show the current Herdr context (pane/tab/workspace IDs) if running under Herdr.
 
 Traces are auto-saved to `~/.pi/agent/agent-loop-debugger/traces/` on every
 `session_shutdown` and when the server stops.
@@ -76,6 +77,33 @@ The debugger captures Pi runtime state and exposes it through the webapp's
 - **Context usage** — current token count, context-window size, and usage percentage.
 
 State is refreshed automatically while the panel is open.
+
+## Herdr awareness
+
+When the extension loads inside a Herdr-managed session (`HERDR_ENV=1`), it
+reads `HERDR_PANE_ID`, `HERDR_TAB_ID`, and `HERDR_WORKSPACE_ID` and attaches
+that origin metadata to every recorded event:
+
+```ts
+{
+  // ...existing DebuggerEvent fields
+  origin?: {
+    paneId?: string;
+    tabId?: string;
+    workspaceId?: string;
+  };
+}
+```
+
+In the webapp:
+
+- An **origin badge** appears next to the timestamp for events that carry Herdr metadata. Hover to see the full pane/tab/workspace IDs.
+- An **origin filter** dropdown appears once any Herdr metadata is seen, letting you show only events from a specific pane.
+- The **status bar** shows a compact Herdr indicator derived from the latest event's origin (e.g., `w1:t2:p3`).
+
+Use `/agentloop --herdr` to print the current Herdr context, and expect the
+server startup notification to include the pane ID when running under Herdr.
+Saved traces preserve the `origin` field and it is restored when loading a trace.
 
 ## Event categories
 

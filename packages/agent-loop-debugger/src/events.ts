@@ -28,6 +28,12 @@ import { randomUUID } from "node:crypto";
 
 export type EventCategory = "agent" | "tool" | "prompt" | "provider" | "session";
 
+export interface DebuggerEventOrigin {
+  paneId?: string;
+  tabId?: string;
+  workspaceId?: string;
+}
+
 export interface DebuggerEvent {
   id: string;
   timestamp: number;
@@ -35,6 +41,7 @@ export interface DebuggerEvent {
   type: string;
   summary: string;
   payload: unknown;
+  origin?: DebuggerEventOrigin;
 }
 
 export type EventListener = (event: DebuggerEvent) => void;
@@ -197,7 +204,11 @@ function summaryForEvent(type: string, payload: unknown): string {
   }
 }
 
-export function normalizeEvent(type: string, payload: unknown): DebuggerEvent {
+export function normalizeEvent(
+  type: string,
+  payload: unknown,
+  origin?: DebuggerEventOrigin,
+): DebuggerEvent {
   return {
     id: randomUUID(),
     timestamp: Date.now(),
@@ -205,6 +216,7 @@ export function normalizeEvent(type: string, payload: unknown): DebuggerEvent {
     type,
     summary: summaryForEvent(type, payload),
     payload,
+    ...(origin ? { origin } : {}),
   };
 }
 
@@ -290,14 +302,18 @@ export class EventBus {
   }
 }
 
-export function createEventCollector(bufferSize = 1000, state?: DebuggerState): EventCollector {
+export function createEventCollector(
+  bufferSize = 1000,
+  state?: DebuggerState,
+  origin?: DebuggerEventOrigin,
+): EventCollector {
   const events = new RingBuffer<DebuggerEvent>(bufferSize);
   const bus = new EventBus();
 
   function record(type: string, payload: unknown): void {
     let event: DebuggerEvent;
     try {
-      event = normalizeEvent(type, payload);
+      event = normalizeEvent(type, payload, origin);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       event = {
@@ -307,6 +323,7 @@ export function createEventCollector(bufferSize = 1000, state?: DebuggerState): 
         type,
         summary: `${type} (normalization failed: ${message})`,
         payload,
+        ...(origin ? { origin } : {}),
       };
     }
     events.push(event);

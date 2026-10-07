@@ -1,6 +1,6 @@
 {
   "name": "@juancrg90/agent-loop-debugger",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Real-time debugger for Pi agent lifecycle events — streams turns, messages, tools, and provider events to a local webapp.",
   "keywords": ["pi-package", "agent-loop-debugger", "extension", "pi", "pi-tui", "debugger"],
   "homepage": "https://github.com/JuanCrg90/pi-extensions/tree/main/packages/agent-loop-debugger",

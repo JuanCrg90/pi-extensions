@@ -6,6 +6,8 @@ events into a browser-based timeline.
 
 ![Agent Loop Debugger timeline with expanded tool execution event](screenshots/agent-loop-debugger.png)
 
+![Timeline showing compact delta groups and Herdr origin badges](screenshots/timeline-compact-deltas.png)
+
 ## Installation
 
 ```bash
@@ -54,6 +56,8 @@ Traces are auto-saved to `~/.pi/agent/agent-loop-debugger/traces/` on every
 - **Export trace** — download the currently filtered view as JSON, a self-contained HTML timeline, or a Markdown table. The export respects category, type, search, time range, and compact-mode settings.
 - **Clear** — clear the timeline display without affecting the server buffer.
 
+![Timeline showing an expanded tool call payload](screenshots/timeline-expanded-payload.png)
+
 ## Trace persistence
 
 The event buffer is automatically persisted to disk as a JSON trace on
@@ -77,6 +81,8 @@ The debugger captures Pi runtime state and exposes it through the webapp's
 - **Context usage** — current token count, context-window size, and usage percentage.
 
 State is refreshed automatically while the panel is open.
+
+![State inspector panel showing active and inactive tools](screenshots/state-inspector.png)
 
 ## Herdr awareness
 

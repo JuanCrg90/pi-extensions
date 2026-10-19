@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { TUI, visibleWidth, type OverlayHandle } from "@earendil-works/pi-tui";
 import askUserQuestion, {
   createDialogComponent,
   initQuestionState,
@@ -54,6 +54,17 @@ function makeCtx(script?: (component: any) => void, mode: string = "tui") {
   const workingVisible: boolean[] = [];
   const updates: Array<{ content: Array<{ type: string; text: string }>; details?: Record<string, unknown> }> = [];
 
+  const listeners = new Set<(data: string) => { consume?: boolean } | undefined>();
+  const statuses = new Map<string, string>();
+  const editorInput: string[] = [];
+  const editor = { render: () => ["Agent response"], handleInput: (data: string) => editorInput.push(data) };
+  const tui = new TUI({ columns: 80, rows: 24, hideCursor() {} } as any);
+  tui.requestRender = () => {};
+  tui.addChild(editor);
+  tui.setFocus(editor);
+  let component: any;
+  let overlay: OverlayHandle;
+
   const ctx = {
     mode,
     hasUI: mode === "tui",
@@ -61,18 +72,32 @@ function makeCtx(script?: (component: any) => void, mode: string = "tui") {
       setWorkingVisible(value: boolean) {
         workingVisible.push(value);
       },
-      custom(factory: any) {
+      onTerminalInput(handler: (data: string) => { consume?: boolean } | undefined) {
+        listeners.add(handler);
+        return () => { listeners.delete(handler); };
+      },
+      setStatus(key: string, value: string | undefined) {
+        if (value === undefined) statuses.delete(key);
+        else statuses.set(key, value);
+      },
+      custom(factory: any, options?: { onHandle?: (handle: OverlayHandle) => void }) {
         let resolvePromise!: (value: AskUserQuestionResult | null) => void;
         const promise: Promise<AskUserQuestionResult | null> & { close?: () => void } = new Promise((resolve) => {
           resolvePromise = resolve;
         }) as Promise<AskUserQuestionResult | null> & { close?: () => void };
 
-        const component = factory(
-          { requestRender() {} },
+        component = factory(
+          tui,
+          { fg: (_color: string, text: string) => text, bold: (text: string) => text },
           {},
-          {},
-          (result: AskUserQuestionResult | null) => resolvePromise(result),
+          (result: AskUserQuestionResult | null) => {
+            overlay?.hide();
+            component?.dispose();
+            resolvePromise(result);
+          },
         );
+        overlay = tui.showOverlay(component);
+        options?.onHandle?.(overlay);
 
         promise.close = () => resolvePromise(null);
         script?.(component);
@@ -85,6 +110,19 @@ function makeCtx(script?: (component: any) => void, mode: string = "tui") {
     ctx,
     workingVisible,
     updates,
+    listeners,
+    statuses,
+    editorInput,
+    tui,
+    get component() { return component; },
+    get overlay() { return overlay; },
+    sendInput(data: string) {
+      for (const listener of listeners) {
+        if (listener(data)?.consume) return;
+      }
+      if (overlay.isFocused()) component.handleInput(data);
+      else editor.handleInput(data);
+    },
     onUpdate(update: { content: Array<{ type: string; text: string }>; details?: Record<string, unknown> }) {
       updates.push(update);
     },
@@ -168,6 +206,140 @@ describe("runtime", () => {
     assert.ok(details.answers?.q2);
     assert.ok(env.updates.some((u) => u.details?.milestone === "review_ready"));
     assert.ok(env.updates.some((u) => u.details?.milestone === "submitted"));
+  });
+
+  it("temporarily hides the modal without finishing and restores focus", async () => {
+    const env = makeCtx();
+    let settled = false;
+    const pending = getTool().execute("id", makeParams(), undefined, env.onUpdate, env.ctx);
+    void pending.then(() => { settled = true; });
+
+    env.sendInput("\x1b[113;6u"); // Ctrl+Shift+Q, Kitty keyboard protocol
+    await Promise.resolve();
+    assert.strictEqual(settled, false);
+    assert.strictEqual(env.overlay.isHidden(), true);
+    assert.strictEqual(env.overlay.isFocused(), false);
+    assert.match([...env.statuses.values()].join(""), /hidden.*Ctrl\+Shift\+Q/i);
+    env.sendInput("\x1b[5~"); // PageUp remains available to the transcript/editor
+    assert.deepStrictEqual(env.editorInput, ["\x1b[5~"]);
+    assert.deepStrictEqual(env.workingVisible, [false]);
+    assert.deepStrictEqual(env.updates.map((u) => u.details?.milestone), ["dialog_opened"]);
+
+    env.sendInput("\x1b[113;6u");
+    assert.strictEqual(env.overlay.isHidden(), false);
+    assert.strictEqual(env.overlay.isFocused(), true);
+    assert.strictEqual(env.statuses.size, 0);
+    env.sendInput("\n");
+    const result = await pending;
+    assert.strictEqual((result.details as AskUserQuestionResult).cancelled, false);
+    assert.strictEqual(env.listeners.size, 0);
+    assert.strictEqual(env.statuses.size, 0);
+  });
+
+  for (const event of [
+    { name: "release", data: "\x1b[113;6:3u" },
+    { name: "repeat", data: "\x1b[113;6:2u" },
+  ]) {
+    it(`does not toggle again on a shortcut key ${event.name}`, async () => {
+      const env = makeCtx();
+      const pending = getTool().execute("id", makeParams(), undefined, env.onUpdate, env.ctx);
+      env.sendInput("\x1b[113;6:1u"); // key down hides
+      assert.strictEqual(env.overlay.isHidden(), true);
+      env.sendInput(event.data);
+      assert.strictEqual(env.overlay.isHidden(), true);
+      assert.strictEqual(env.statuses.size, 1);
+
+      env.sendInput("\x1b[113;6:1u"); // next key down restores
+      assert.strictEqual(env.overlay.isFocused(), true);
+      env.sendInput(event.data);
+      assert.strictEqual(env.overlay.isHidden(), false);
+      assert.strictEqual(env.overlay.isFocused(), true);
+      assert.strictEqual(env.statuses.size, 0);
+      assert.deepStrictEqual(env.editorInput, []);
+      assert.deepStrictEqual(env.updates.map((u) => u.details?.milestone), ["dialog_opened"]);
+      env.sendInput("\n");
+      assert.strictEqual(((await pending).details as AskUserQuestionResult).cancelled, false);
+      assert.strictEqual(env.listeners.size, 0);
+    });
+  }
+
+  it("preserves Other drafts and cursor position across repeated hide cycles", async () => {
+    const env = makeCtx();
+    const pending = getTool().execute("id", makeParams(), undefined, undefined, env.ctx);
+    env.sendInput("o");
+    env.sendInput("abc");
+    env.sendInput("\x1b[D");
+    for (let i = 0; i < 2; i++) {
+      env.sendInput("\x1b[113;6u");
+      assert.strictEqual(env.overlay.isHidden(), true);
+      env.sendInput("\x1b[113;6u");
+      assert.strictEqual(env.overlay.isFocused(), true);
+    }
+    env.sendInput("X");
+    env.sendInput("\n");
+    const result = await pending;
+    assert.strictEqual(((result.details as AskUserQuestionResult).answers?.q1 as any)?.text, "abXc");
+    assert.deepStrictEqual(env.editorInput, []);
+  });
+
+  it("preserves selections, note drafts, and review mode when hidden", async () => {
+    const env = makeCtx();
+    const params = makeParams([makeQuestion({ multiSelect: true }), makeQuestion({ id: "q2" })]);
+    const pending = getTool().execute("id", params, undefined, undefined, env.ctx);
+    env.sendInput(" ");
+    env.sendInput("N");
+    env.sendInput("remember");
+    env.sendInput("\x1b[113;6u");
+    assert.strictEqual(env.overlay.isHidden(), true);
+    env.sendInput("\x1b[113;6u");
+    env.sendInput("\n"); // save note
+    env.sendInput("\n"); // confirm first question
+    env.sendInput("\n"); // answer second and enter review
+    env.sendInput("\x1b[113;6u");
+    assert.strictEqual(env.overlay.isHidden(), true);
+    env.sendInput("\x1b[113;6u");
+    assert.match(env.component.render(80).join("\n"), /Review Answers/);
+    env.sendInput("\n");
+    const details = (await pending).details as AskUserQuestionResult;
+    assert.strictEqual(details.annotations?.q1?.questionNotes, "remember");
+    assert.strictEqual((details.answers?.q1 as any)?.selections[0]?.optionId, "opt1");
+    assert.strictEqual(env.listeners.size, 0);
+  });
+
+  it("does not take the shortcut from another focused overlay", async () => {
+    const env = makeCtx();
+    const pending = getTool().execute("id", makeParams(), undefined, undefined, env.ctx);
+    const other = env.tui.showOverlay({ render: () => ["Other dialog"] });
+    env.sendInput("\x1b[113;6u");
+    assert.strictEqual(env.overlay.isHidden(), false);
+    other.hide();
+    env.sendInput("\x1b[113;6u");
+    const otherWhileHidden = env.tui.showOverlay({ render: () => ["Other dialog"] });
+    env.sendInput("\x1b[113;6u");
+    assert.strictEqual(env.overlay.isHidden(), true);
+    otherWhileHidden.hide();
+    env.sendInput("\x1b[113;6u");
+    env.sendInput("\x03");
+    await pending;
+    assert.strictEqual(env.listeners.size, 0);
+  });
+
+  it("cleans up the hidden modal and reminder on abort", async () => {
+    const env = makeCtx();
+    const controller = new AbortController();
+    const pending = getTool().execute("id", makeParams(), controller.signal, undefined, env.ctx);
+    env.sendInput("\x1b[113;6u");
+    assert.strictEqual(env.overlay.isHidden(), true);
+    controller.abort();
+    const result = await pending;
+    assert.strictEqual(result.terminate, true);
+    assert.strictEqual((result.details as AskUserQuestionResult).cancelled, true);
+    assert.strictEqual(env.tui.hasOverlay(), false);
+    assert.strictEqual(env.listeners.size, 0);
+    assert.strictEqual(env.statuses.size, 0);
+    assert.deepStrictEqual(env.workingVisible, [false, true]);
+    env.sendInput("\x1b[113;6u");
+    assert.deepStrictEqual(env.editorInput, ["\x1b[113;6u"]);
   });
 
   it("closes cleanly on AbortSignal", async () => {

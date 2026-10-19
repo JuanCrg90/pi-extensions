@@ -113,7 +113,11 @@ preview context, and preserved metadata without reading TUI-only state.
 - optional questions may remain unanswered
 - multi-select `Space` immediately updates answered state; empty selection needs two `Enter` presses
 - dismiss path returns `cancelled: true` and `terminate: true`
-- working indicator hidden while modal open; always restored
+- working indicator hidden while a question is pending; always restored on completion
+- `Ctrl+Shift+Q` temporarily hides/restores the modal without answering or dismissing
+- while hidden, Pi receives normal input so you can scroll and read the conversation;
+  a footer reminder shows how to resume, and the agent continues waiting
+- selections, notes, text drafts, cursor position, and review state survive hiding
 - supports external abort via `_signal`
 - emits low-noise `_onUpdate` milestones:
   - `dialog_opened`
@@ -123,6 +127,12 @@ preview context, and preserved metadata without reading TUI-only state.
   - `dismissed`
 
 ## Keybindings
+
+In every modal view (including help, review, and text input):
+- `Ctrl+Shift+Q` — hide modal to read the conversation; press again to resume
+- requires a terminal that reports modified keys (e.g. Kitty keyboard protocol);
+  terminals or OS shortcuts that intercept this key combination cannot toggle it
+- while hidden, ordinary Pi bindings apply, including any interrupt/abort bindings
 
 Normal:
 - `↑/↓` or `j/k` — move focus

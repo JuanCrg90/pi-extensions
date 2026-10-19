@@ -165,6 +165,7 @@ export function createDialogComponent(
       trimmed.startsWith("Enter") ||
       trimmed.startsWith("Esc") ||
       trimmed.startsWith("Ctrl-C") ||
+      trimmed.startsWith("Ctrl+Shift+Q") ||
       trimmed.startsWith("Tab/") ||
       trimmed.startsWith("Space") ||
       trimmed.startsWith("o ") ||
@@ -392,6 +393,7 @@ export function createDialogComponent(
         }
       }
 
+      addText(container, ["Ctrl+Shift+Q: hide / restore to read conversation"]);
       container.addChild(new DynamicBorder(borderColor));
       return container.render(safeWidth);
     },

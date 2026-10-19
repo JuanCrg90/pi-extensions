@@ -1,6 +1,6 @@
 {
   "name": "@juancrg90/ask-user-question",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Interactive AskUserQuestion tool for Pi — pause and ask the user structured questions in the TUI with stable ID-based results.",
   "keywords": [
     "pi-package",

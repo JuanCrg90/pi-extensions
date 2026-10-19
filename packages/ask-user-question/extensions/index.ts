@@ -15,7 +15,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import { isKeyRelease, isKeyRepeat, Key, matchesKey, Text, type OverlayHandle } from "@earendil-works/pi-tui";
 
 import type {
   AskUserQuestionParams,
@@ -126,6 +126,8 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
 
       // 3. Hide working indicator
       if (ctx.hasUI) ctx.ui.setWorkingVisible(false);
+      const statusKey = `ask-user-question:${_toolCallId}`;
+      let removeInputListener: (() => void) | undefined;
 
       try {
         // 4. Build dialog state
@@ -154,6 +156,7 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
         let dialogDismissed = false;
         let submittedUpdateSent = false;
         let finishDialog: ((result: AskUserQuestionResult | null) => void) | undefined;
+        let overlay: OverlayHandle | undefined;
 
         _onUpdate?.({
           content: [{ type: "text", text: "Dialog opened" }],
@@ -163,6 +166,21 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
         const dialogPromise = ctx.ui.custom<AskUserQuestionResult | null>(
           (tui, theme, _kb, done) => {
             finishDialog = done;
+            removeInputListener = ctx.ui.onTerminalInput((data) => {
+              if (!overlay || !matchesKey(data, Key.ctrlShift("q"))) return;
+              // Do not steal focus from a different dialog. While hidden, let
+              // ordinary input reach Pi so the conversation can be scrolled.
+              if (!overlay.isFocused() && (!overlay.isHidden() || tui.hasOverlay())) return;
+              // Raw listeners run before Pi filters key-up events. Toggle only
+              // on key-down, consuming key-up/repeat so a press toggles once.
+              if (isKeyRelease(data) || isKeyRepeat(data)) return { consume: true };
+              const hidden = !overlay.isHidden();
+              overlay.setHidden(hidden);
+              ctx.ui.setStatus(statusKey, hidden
+                ? "Question hidden · Ctrl+Shift+Q to resume"
+                : undefined);
+              return { consume: true };
+            });
             return createDialogComponent(
               state,
               () => {
@@ -220,7 +238,7 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
               theme,
             );
           },
-          { overlay: true },
+          { overlay: true, onHandle: (handle) => { overlay = handle; } },
         );
 
         const abortHandler = () => {
@@ -262,6 +280,8 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
           terminate: finalResult.cancelled ? true : undefined,
         };
       } finally {
+        removeInputListener?.();
+        ctx.ui.setStatus(statusKey, undefined);
         if (ctx.hasUI) ctx.ui.setWorkingVisible(true);
       }
     },

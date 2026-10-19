@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-19
+
+### Added
+- Hide and restore the pending question modal with `Ctrl+Shift+Q` to read the
+  conversation without answering or dismissing. Preserves selections, notes,
+  input drafts, cursor position, and review state, with a footer reminder to resume.
+
+### Fixed
+- Toggle modal visibility only on shortcut key-down, ignoring key-up and repeat
+  events that caused the modal to blink instead of remaining hidden.
+
 ## [1.0.1] - 2026-10-06
 
 ### Fixed

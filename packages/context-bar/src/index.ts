@@ -17,6 +17,7 @@ import type {
   ExtensionContext,
   Theme,
 } from "@earendil-works/pi-coding-agent";
+import { buildSessionContext, convertToLlm } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import {
@@ -361,7 +362,7 @@ export default function (pi: ExtensionAPI): void {
   });
 
   pi.on("context", async (event) => {
-    updateMessageBreakdown(event.messages as GenericMessage[]);
+    updateMessageBreakdown(convertToLlm(event.messages));
     requestRender();
   });
 
@@ -371,6 +372,14 @@ export default function (pi: ExtensionAPI): void {
   });
 
   pi.on("agent_end", async (_event, ctx) => {
+    updateUsage(ctx);
+    requestRender();
+  });
+
+  pi.on("session_compact", async (_event, ctx) => {
+    const { messages } = buildSessionContext(ctx.sessionManager.getBranch());
+    updateMessageBreakdown(convertToLlm(messages));
+    // Pi reports null tokens until the next response; use the compacted estimates.
     updateUsage(ctx);
     requestRender();
   });

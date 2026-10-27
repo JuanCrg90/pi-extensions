@@ -65,8 +65,10 @@ The footer appears at the bottom of the TUI and updates live as the conversation
 - Token counts are estimated from UTF-8 text length (≈ 4 characters per token).
 - The extension listens to Pi lifecycle events:
   - `before_agent_start` parses the rendered system prompt and active tools.
-  - `context` sizes the conversation messages.
+  - `context` sizes the conversation messages, including compaction summaries.
   - `message_end` / `agent_end` / `model_select` refresh the usage total from `ctx.getContextUsage()`.
+  - `session_compact` rebuilds message estimates from the compacted conversation and refreshes the footer after automatic or manual compaction.
+- Immediately after compaction, Pi's token total is unknown. The footer uses the compacted estimates until the next model response reports fresh usage.
 - When Pi reports a real token total, each category is scaled proportionally so the bar and legend percentages always match the reported total usage.
 
 ## 🏗 Package Structure
@@ -79,7 +81,8 @@ context-bar/
 │   ├── context.ts  # Pure helpers (token estimation, scaling, parsing)
 │   └── index.ts    # Pi extension entry point and TUI renderer
 ├── tests/
-│   └── context.test.ts
+│   ├── context.test.ts
+│   └── index.test.ts
 ├── tsconfig.json   # Development type-checking
 ├── README.md
 └── .gitignore

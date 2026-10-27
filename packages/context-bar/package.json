@@ -1,6 +1,6 @@
 {
   "name": "@juancrg90/context-bar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Context usage breakdown for Pi — shows how the model context is split across system prompt, tools, MCP tools, skills, memory files, and messages.",
   "keywords": ["pi-package", "context-bar", "extension", "pi", "pi-tui", "status-bar"],
   "homepage": "https://github.com/JuanCrg90/pi-extensions/tree/main/packages/context-bar",

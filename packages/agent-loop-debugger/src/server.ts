@@ -6,6 +6,7 @@
  * events, then receive live events through a pub/sub bus.
  *
  * Additional endpoints:
+ *   GET  /api/event-types               educational event reference
  *   GET  /api/events                    buffered events
  *   GET  /api/traces                    list saved traces
  *   GET  /api/traces/:filename          download a trace file
@@ -22,6 +23,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { DebuggerEvent, DebuggerState, EventBus, RingBuffer } from "./events.ts";
 import { listTraces, loadTrace, saveTrace } from "./trace.ts";
+import { eventGuide } from "./event-guide.ts";
 
 let cachedIndexHtml: string | undefined;
 let cachedIndexHtmlError = false;
@@ -94,6 +96,21 @@ export function createDebugServer(
 
     if (url.pathname === "/events") {
       handleEvents(req, res);
+      return;
+    }
+
+    if (url.pathname === "/api/event-types") {
+      sendJson(res, 200, eventGuide);
+      return;
+    }
+
+    if (url.pathname === "/event-guide.js") {
+      try {
+        const script = readFileSync(join(resolvePublicPath(), "event-guide.js"), "utf-8");
+        send(res, 200, script, { "Content-Type": "text/javascript; charset=utf-8" });
+      } catch {
+        send(res, 500, "Failed to load event guide");
+      }
       return;
     }
 

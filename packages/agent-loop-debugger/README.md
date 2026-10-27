@@ -53,6 +53,7 @@ Traces are auto-saved to `~/.pi/agent/agent-loop-debugger/traces/` on every
 - **Auto-scroll** — automatically scroll to the newest event; pause if you scroll up manually.
 - **Load trace** — load a previously saved trace from `~/.pi/agent/agent-loop-debugger/traces/` back into the timeline.
 - **State inspector** — open a side panel to inspect the current system prompt, active tools, and context usage.
+- **Event guide** — open a searchable side panel explaining every captured event type, grouped by timeline category, with payload inspection tips.
 - **Export trace** — download the currently filtered view as JSON, a self-contained HTML timeline, or a Markdown table. The export respects category, type, search, time range, and compact-mode settings.
 - **Clear** — clear the timeline display without affecting the server buffer.
 
@@ -83,6 +84,50 @@ The debugger captures Pi runtime state and exposes it through the webapp's
 State is refreshed automatically while the panel is open.
 
 ![State inspector panel showing active and inactive tools](screenshots/state-inspector.png)
+
+## Event guide
+
+Click **Event guide** beside **State** to open the educational reference panel.
+It is available even with an empty timeline and does not change timeline filters.
+Search by event name, category, or keyword, then expand an event to read its
+meaning and **What to inspect** payload tips. Close with **×**, Escape, or a
+click outside the panel; keyboard focus returns to the Event guide button.
+
+The guide covers all 20 event types registered by this debugger, rather than
+every hook available in Pi. Its categories match the timeline badges:
+
+| Category | Event types |
+| --- | --- |
+| session | `session_start`, `session_shutdown` |
+| agent | `before_agent_start`, `agent_start`, `agent_end`, `agent_settled`, `turn_start`, `turn_end`, `message_start`, `message_end`, `model_select` |
+| prompt | `context`, `message_update` |
+| tool | `tool_execution_start`, `tool_call`, `tool_execution_update`, `tool_result`, `tool_execution_end` |
+| provider | `before_provider_request`, `after_provider_response` |
+
+Key distinctions when reading a trace:
+
+- A **turn** is one model response plus its tool calls, not an entire user prompt.
+- `message_end` finishes one message, not necessarily the turn or run.
+  User and tool-result messages also have start/end events.
+- `message_update` contains assistant streaming updates (text, thinking, or
+  tool-call arguments); its **prompt** badge does not mean it is user input.
+- `tool_execution_start` precedes `tool_call`, the hook where extensions can
+  change arguments or block execution. A start marker does not prove the tool
+  body ran. For a typical successful call, `tool_result` precedes
+  `tool_execution_end`; the final `toolResult` message is a separate stage.
+- Parallel tool events can interleave. Correlate calls by `toolCallId`, not
+  neighboring rows or start order.
+- `after_provider_response` reports status/headers before consuming the stream,
+  not completion of the model response. Hook availability depends on transport.
+- `agent_end` ends a low-level loop; `agent_settled` means no automatic retry,
+  compaction retry, or queued continuation remains.
+
+Descriptions follow Pi's extension lifecycle documentation and exported event
+contracts. Payloads reflect this observer's position in the extension chain;
+later handlers may still change them. The reference catalog is also available
+as JSON at `GET /api/event-types`.
+
+![Event guide with tool lifecycle explanations](screenshots/event-guide.png)
 
 ## Herdr awareness
 

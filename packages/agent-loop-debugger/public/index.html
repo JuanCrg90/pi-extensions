@@ -333,6 +333,43 @@
       background: var(--accent);
     }
 
+    /* Event reference reuses the state inspector's side-panel layout. */
+    #event-guide {
+      margin: 0 0 0 auto;
+      padding: 0;
+      height: 100%;
+      max-height: none;
+      max-width: none;
+      border: 0;
+      border-left: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    #event-guide:not([open]) { display: none; }
+    #event-guide::backdrop { background: rgba(0, 0, 0, 0.45); }
+    #event-guide h2 { margin: 0; font-size: 0.95rem; }
+    #event-guide .state-content { min-height: 0; overflow-wrap: anywhere; }
+    .guide-intro { font-size: 0.8rem; line-height: 1.6; }
+    .guide-intro code, .guide-entry code { font-family: var(--font-mono); }
+    .guide-flow { padding: 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 0.35rem; }
+    #event-guide-search {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.35rem;
+      color: var(--text);
+      font: inherit;
+    }
+    #event-guide-status { color: var(--text-muted); font-size: 0.75rem; }
+    #event-guide-list section { margin-top: 1.25rem; }
+    .guide-entry { border-bottom: 1px solid var(--border); font-size: 0.8rem; line-height: 1.6; }
+    .guide-entry summary { padding: 0.5rem 0; cursor: pointer; }
+    .guide-entry p { margin: 0 0 0.75rem; }
+    .guide-inspect { color: var(--text-muted); }
+    #event-guide :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
     /* State inspector panel */
     .state-panel {
       position: fixed;
@@ -836,6 +873,7 @@
       <button class="category-toggle" data-category="provider">provider</button>
       <button class="btn" id="autoscroll-toggle" title="Pause/resume auto-scroll">Auto-scroll: on</button>
       <button class="btn" id="state-toggle" title="Open state inspector">State</button>
+      <button class="btn" id="event-guide-toggle" title="Learn what each event means" aria-haspopup="dialog" aria-controls="event-guide" aria-expanded="false">Event guide</button>
       <button class="btn" id="clear-btn" title="Clear the timeline display">Clear</button>
     </div>
   </header>
@@ -891,6 +929,30 @@
 
   <div class="scroll-hint" id="scroll-hint">New events below ↓</div>
 
+  <dialog id="event-guide" class="state-panel" aria-labelledby="event-guide-title">
+    <div class="state-panel-header">
+      <h2 id="event-guide-title">Event guide</h2>
+      <button class="state-close" id="event-guide-close" aria-label="Close event guide">×</button>
+    </div>
+    <div class="state-content">
+      <div class="guide-intro">
+        <p>Learn to read the agent loop. This reference covers every event type captured by this debugger, even before any events arrive.</p>
+        <p class="guide-flow"><strong>The big picture</strong><br>
+          Prompt → agent loop → model turn → assistant response → tool calls (if any) → turn end.<br>
+          Turns can repeat. <code>agent_end</code> ends one loop; <code>agent_settled</code> means no automatic continuation remains.</p>
+        <p><strong>Reading tool events</strong><br>
+          For a typical successful call: <code>tool_execution_start</code> → <code>tool_call</code> → optional <code>tool_execution_update</code> → <code>tool_result</code> → <code>tool_execution_end</code>.
+          Parallel calls can interleave: match <code>toolCallId</code>, not adjacent rows. Final <code>toolResult</code> message events can arrive later.</p>
+        <p>Badges are debugger categories, not message roles. In particular, <strong>prompt</strong> includes assistant streaming updates. Provider hooks depend on the transport. Payloads reflect what this observer saw; later extension handlers may change them.</p>
+      </div>
+      <label class="state-section-title" for="event-guide-search">Find an event</label>
+      <input type="search" id="event-guide-search" placeholder="Name, category, or keyword…" />
+      <p id="event-guide-status" role="status" aria-live="polite">Loading event reference…</p>
+      <button class="btn" id="event-guide-retry" hidden>Retry</button>
+      <div id="event-guide-list"></div>
+    </div>
+  </dialog>
+
   <div class="state-backdrop" id="state-backdrop"></div>
 
   <div id="state-panel" class="state-panel hidden">
@@ -940,6 +1002,7 @@
     </div>
   </div>
 
+  <script src="/event-guide.js"></script>
   <script>
     const timeline = document.getElementById("timeline");
     const emptyState = document.getElementById("empty-state");
@@ -2058,6 +2121,8 @@
         console.error("[agent-loop-debugger] Failed to refresh state:", err);
       }
     }
+
+    initializeEventGuide({ closeStatePanel });
 
     // Keyboard shortcut: space toggles auto-scroll
     document.addEventListener("keydown", (e) => {

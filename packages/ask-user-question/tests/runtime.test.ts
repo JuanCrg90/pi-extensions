@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { TUI, visibleWidth, type OverlayHandle } from "@earendil-works/pi-tui";
+import { stripVTControlCharacters } from "node:util";
+import { TUI, visibleWidth, type OverlayHandle, type OverlayOptions } from "@earendil-works/pi-tui";
 import askUserQuestion, {
   createDialogComponent,
   initQuestionState,
@@ -50,7 +51,7 @@ function makeParams(questions: Question[] = [makeQuestion()]): AskUserQuestionPa
   return { questions };
 }
 
-function makeCtx(script?: (component: any) => void, mode: string = "tui") {
+function makeCtx(script?: (component: any) => void, mode: string = "tui", columns = 80) {
   const workingVisible: boolean[] = [];
   const updates: Array<{ content: Array<{ type: string; text: string }>; details?: Record<string, unknown> }> = [];
 
@@ -58,7 +59,7 @@ function makeCtx(script?: (component: any) => void, mode: string = "tui") {
   const statuses = new Map<string, string>();
   const editorInput: string[] = [];
   const editor = { render: () => ["Agent response"], handleInput: (data: string) => editorInput.push(data) };
-  const tui = new TUI({ columns: 80, rows: 24, hideCursor() {} } as any);
+  const tui = new TUI({ columns, rows: 24, hideCursor() {} } as any);
   tui.requestRender = () => {};
   tui.addChild(editor);
   tui.setFocus(editor);
@@ -80,7 +81,7 @@ function makeCtx(script?: (component: any) => void, mode: string = "tui") {
         if (value === undefined) statuses.delete(key);
         else statuses.set(key, value);
       },
-      custom(factory: any, options?: { onHandle?: (handle: OverlayHandle) => void }) {
+      custom(factory: any, options?: { overlayOptions?: OverlayOptions; onHandle?: (handle: OverlayHandle) => void }) {
         let resolvePromise!: (value: AskUserQuestionResult | null) => void;
         const promise: Promise<AskUserQuestionResult | null> & { close?: () => void } = new Promise((resolve) => {
           resolvePromise = resolve;
@@ -96,7 +97,7 @@ function makeCtx(script?: (component: any) => void, mode: string = "tui") {
             resolvePromise(result);
           },
         );
-        overlay = tui.showOverlay(component);
+        overlay = tui.showOverlay(component, options?.overlayOptions);
         options?.onHandle?.(overlay);
 
         promise.close = () => resolvePromise(null);
@@ -130,6 +131,29 @@ function makeCtx(script?: (component: any) => void, mode: string = "tui") {
 }
 
 describe("runtime", () => {
+  for (const columns of [45, 145]) {
+    it(`keeps question text contiguous over the conversation at width ${columns}`, async () => {
+      const question = makeQuestion({
+        header: "Captura viva",
+        question: "¿Qué opción eliges para comprobar el envío desde el chat de Moshi cuando el diálogo ocupa varias líneas y hay una conversación debajo?",
+      });
+      const env = makeCtx(undefined, "tui", columns);
+      const pending = getTool().execute("id", makeParams([question]), undefined, env.onUpdate, env.ctx);
+      try {
+        const background = Array.from({ length: 24 }, () => "1 question ".repeat(columns).slice(0, columns));
+        // Isolated component rendering misses text beside a centered overlay.
+        // Exercise Pi's compositor to reproduce what Moshi reads from the pane.
+        const screen = (env.tui as any).compositeOverlays(background, columns, 24).join("\n");
+        const normalize = (text: string) => stripVTControlCharacters(text).toLowerCase().replace(/\s+/g, "");
+        assert.ok(normalize(screen).includes(normalize(question.question)),
+          "Conversation text must not interrupt the visible question");
+      } finally {
+        env.sendInput("\x03");
+        await pending;
+      }
+    });
+  }
+
   it("requires TUI mode", async () => {
     const tool = getTool();
     for (const mode of ["cli", "rpc"]) {
@@ -479,8 +503,28 @@ describe("dialog component regressions", () => {
     const component = createDialogComponent(state, () => {}, () => {}, theme as any);
     const output = component.render(80).join("\n");
     assert.match(output, /<accent><bold>❯ Pick:/);
-    assert.match(output, /<dim>.*Enter: confirm/);
+    assert.match(output, /<dim>.*Enter: select/);
   });
+
+  for (const variant of ["single", "multi-select", "preview", "batched"] as const) {
+    for (const width of [24, 80]) {
+      it(`preserves Moshi prompt markers for ${variant} at width ${width}`, () => {
+        const state = makeDialogState();
+        const question = makeQuestion({ multiSelect: variant === "multi-select" });
+        if (variant === "preview") question.options[0].preview = "Library details";
+        state.questions = variant === "batched" ? [question, state.questions[1]] : [question];
+        state.questionStates.set(question.id, initQuestionState(question));
+        const component = createDialogComponent(state, () => {}, () => {});
+        // Moshi 0.4.45 checks these English markers before sending any keys.
+        // Collapse whitespace so narrow-terminal wrapping cannot hide them.
+        const output = component.render(width).join("\n").toLowerCase().replace(/\s+/g, "");
+
+        for (const marker of ["navigate", "select", "enter"]) {
+          assert.ok(output.includes(marker), `Missing Moshi prompt marker: ${marker}`);
+        }
+      });
+    }
+  }
 
   it("renders the dialog inside official Pi borders", () => {
     const state = makeDialogState();

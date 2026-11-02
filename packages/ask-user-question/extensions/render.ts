@@ -193,10 +193,12 @@ export function renderQuestion(
       }
     }
 
+    // Moshi's Pi bridge requires visible "navigate", "select", and "enter"
+    // markers before it will submit answers. Preserve them in both layouts.
     lines.push(
       q.multiSelect
-        ? "  [↑/↓: move] [Space: toggle] [Enter: confirm] [o: Other] [n/N: option/question note] [?: help]"
-        : "  [↑/↓: move] [Enter: confirm] [o: Other] [n/N: option/question note] [?: help]",
+        ? "  [↑/↓: navigate] [Space: select/deselect] [Enter: confirm] [o: Other] [n/N: option/question note] [?: help]"
+        : "  [↑/↓: navigate] [Enter: select] [o: Other] [n/N: option/question note] [?: help]",
     );
     lines.push("  [Tab/Shift-Tab: switch]  [Esc Esc: dismiss]  [Ctrl-C: dismiss now]");
   }
@@ -360,7 +362,7 @@ export function renderPreviewPanel(
     lines.push(`${left.padEnd(leftWidth)} ${right}`);
   }
 
-  lines.push("  [↑/↓: move]  [Enter: confirm]  [o: Other...]  [n: note]  [?: help]");
+  lines.push("  [↑/↓: navigate]  [Enter: select]  [o: Other...]  [n: note]  [?: help]");
   lines.push("  [Tab/Shift-Tab: switch]  [Esc Esc: dismiss]  [Ctrl-C: dismiss now]");
 
   if (state.showHelp) {

@@ -164,6 +164,16 @@ The dialog uses Pi's native `Container`, `Text`, `Box`, `Input`, and
 `DynamicBorder` controls. It follows the active Pi theme for headings, focus,
 selections, warnings, descriptions, controls, and borders.
 
+## Moshi Chat View
+
+Moshi submits option answers through the live terminal dialog. Its Pi bridge
+(validated with `moshi-hook 0.4.45`) requires the visible English markers
+`navigate`, `select`, and `enter` before sending keys. The normal and preview
+layouts preserve these markers in their keyboard hints; do not remove or
+translate them without rechecking compatibility. The dialog spans the terminal
+width so conversation text beside wrapped lines cannot interrupt the question
+in Moshi's pane capture.
+
 ## Preview
 
 - single-select only

@@ -238,7 +238,13 @@ export default function askUserQuestion(pi: ExtensionAPI): void {
               theme,
             );
           },
-          { overlay: true, onHandle: (handle) => { overlay = handle; } },
+          {
+            overlay: true,
+            // Prevent conversation text beside wrapped lines from breaking
+            // Moshi's verification of the question read from the terminal.
+            overlayOptions: { width: "100%" },
+            onHandle: (handle) => { overlay = handle; },
+          },
         );
 
         const abortHandler = () => {

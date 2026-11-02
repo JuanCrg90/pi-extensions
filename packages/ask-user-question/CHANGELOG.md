@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-01
+
+### Fixed
+- Preserve the keyboard-hint markers required by Moshi's Pi bridge so Chat View
+  can submit option answers instead of reporting that the terminal question changed.
+- Use a terminal-wide question overlay so conversation text cannot interrupt
+  wrapped questions in Moshi's terminal capture.
+
 ## [1.1.0] - 2026-10-19
 
 ### Added
